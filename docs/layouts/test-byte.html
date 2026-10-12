@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>byte test</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>:root{--ink:#07090d;--bone:#efe9dd;--mute:#8b93a1;--sb:#1f8fd6;--display:'Inter Tight',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace}*{box-sizing:border-box;margin:0}body{background:var(--ink);color:var(--bone);font-family:var(--display)}canvas{position:fixed;inset:0;z-index:0}main{position:relative;z-index:1;pointer-events:none}section{min-height:100vh;padding:40px}.k{font:500 10px/1 var(--mono);letter-spacing:.26em;color:var(--mute)}</style></head><body>
+<canvas id="stage"></canvas>
+<main><section id="front"><div class="k">BYTE · FRONT · GLB</div></section><section id="side"><div class="k">BYTE · THREE-QUARTER · WAVE</div></section><section id="low"><div class="k">BYTE · LOWER BODY</div></section><section id="proc"><div class="k">BYTE · PROCEDURAL (reference)</div></section></main>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { createBot } from './shared/sb-bot.js';
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('stage'), antialias: true }); renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.setSize(innerWidth, innerHeight); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x090c12);
+const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.1, 100);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: 0x0e1218, roughness: 0.9 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+scene.add(new THREE.HemisphereLight(0x8fa6c8, 0x0a0c10, 1.0));
+const key = new THREE.SpotLight(0xfff1dc, 160, 30, 0.6, 0.5, 1.6); key.position.set(3, 7, 5); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0005; key.shadow.normalBias = 0.04; scene.add(key, key.target);
+const cold = new THREE.PointLight(0x1f8fd6, 50, 30, 2); cold.position.set(-5, 3, -3); scene.add(cold);
+const glb = createBot({ scale: 1 }); scene.add(glb.group); glb.place(new THREE.Vector3(0, 0, 0), 0);
+const proc = createBot({ scale: 1, model: false }); scene.add(proc.group); proc.place(new THREE.Vector3(6, 0, 0), 0);
+const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera)); composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.3, 0.45, 0.85)); composer.addPass(new OutputPass());
+const clock = new THREE.Clock();
+function frame() {
+  const dt = clock.getDelta(); const p = Math.min(1, scrollY / Math.max(1, document.documentElement.scrollHeight - innerHeight));
+  if (p < 0.25) { camera.position.set(0, 1.25, 4.6); camera.lookAt(0, 1.05, 0); glb.setMood('idle'); }
+  else if (p < 0.5) { camera.position.set(2.6, 1.6, 3.6); camera.lookAt(0, 1.0, 0); glb.setMood('wave'); }
+  else if (p < 0.75) { camera.position.set(2.2, 0.6, 2.4); camera.lookAt(0, 0.45, 0); glb.setMood('idle'); }
+  else { camera.position.set(6, 1.25, 4.6); camera.lookAt(6, 1.05, 0); proc.setMood('wave'); }
+  glb.lookAt(camera.position); proc.lookAt(camera.position); glb.update(dt, camera); proc.update(dt, camera); composer.render();
+}
+renderer.setAnimationLoop(frame);
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); });
+</script></body></html>

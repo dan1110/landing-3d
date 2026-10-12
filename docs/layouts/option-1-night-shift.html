@@ -94,17 +94,28 @@ body.sb-hover #cursor{width:38px;height:38px;border-color:var(--amber)}
 footer{position:relative;z-index:10;min-height:60vh;display:flex;align-items:flex-end;padding:0 32px 36px}
 
 @media(max-width:720px){
-  #top{padding:18px 20px}
+  #top{padding:18px 16px}
   #top nav{display:none}
   #top .menu{display:block}
   #rail{display:none}
-  section.ch{padding:0 20px}
-  section.ch .hint{left:20px;bottom:40px}
-  h1{font-size:clamp(40px,13vw,80px)}
-  .ovmic{right:20px;bottom:40px}
-  #counters{left:20px;bottom:88px;flex-direction:column;gap:6px}
-  #loadcap{left:20px;bottom:40px;max-width:80vw}
-  form.mock{max-width:100%}
+  section.ch,#work,#team{align-items:flex-start;padding:88px 16px 0;min-height:100vh}
+  section.ch .wrap{max-width:none}
+  section.ch.right .wrap{margin-left:0;text-align:left}
+  section.ch.right .wrap h1,section.ch.right p.body,form.mock{margin-left:0}
+  h1,section.ch.right h1,#work h1,#team h1{font-size:clamp(34px,9.5vw,56px);max-width:none;line-height:.98}
+  section.ch .label,#work .label,#team .label{margin-bottom:12px}
+  .eyebrow{margin-bottom:8px}
+  section.ch p.body,#work p.body,#team p.body,#hero .tag{margin-top:12px;font-size:14px;line-height:1.5;max-width:none;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  #hero .stats{margin-top:10px;font-size:10px;letter-spacing:.12em}
+  section.ch .hint{left:16px;bottom:22px}
+  .cap,#loadcap{display:none}
+  .ovmic{left:16px;right:16px;bottom:22px;padding:12px 14px;gap:12px}
+  #workcap{display:none}
+  #counters{left:16px;right:16px;bottom:22px;flex-direction:row;flex-wrap:wrap;gap:8px 16px;font-size:11px}
+  form.mock{margin-top:14px;max-width:100%;gap:8px}
+  form.mock input,form.mock textarea{padding:10px 12px;font-size:14px}
+  form.mock textarea{min-height:60px}
+  footer{min-height:28vh;padding:0 16px 24px}
 }
 @media(prefers-reduced-motion:reduce){
   h1 .w,section.ch p.body,.ovmic,form.mock{transition:none;opacity:1;transform:none}
@@ -244,7 +255,8 @@ renderer.toneMappingExposure = 1.05;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(C.ink);
 scene.fog = new THREE.Fog(C.slate, 20, 90);
-const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.1, 400);
+const isPortrait=()=> innerWidth<=720 || innerWidth/innerHeight<0.8; let portrait=isPortrait();
+const camera = new THREE.PerspectiveCamera(portrait?54:42, innerWidth/innerHeight, 0.1, 400);
 
 /* ---------- helpers ---------- */
 const matStd = (color, o={}) => new THREE.MeshStandardMaterial({ color, roughness:.85, metalness:.05, ...o });
@@ -355,7 +367,7 @@ const lobby = new THREE.Group(); scene.add(lobby);
 }
 
 /* ---------- Byte, the guide ---------- */
-const bot = createBot({ scale: .95 }); scene.add(bot.group);
+const bot = createBot({ scale: .95 }); scene.add(bot.group); bot.group.scale.setScalar(portrait?.78:.95);
 bot.place(new THREE.Vector3(3.9, 0, 52.5), 0);
 bot.attachBubble(camera);
 createVoiceToggle();
@@ -408,7 +420,7 @@ const archBlocks=[]; const archLines=[]; const interiors=[];
 }
 
 /* ---------- gallery corridor (x = 52): twelve real projects ---------- */
-const GAL=52; const workCards=[]; let workEnter=0;
+const GAL=52; const workCards=[]; let workEnter=0; let placeWork=()=>{}; let galLamp=null, galRail=null;
 {
   const g=new THREE.Group(); g.position.x=GAL; scene.add(g); interiors.push(g);
   box(24, .04, 12, matStd(0x0e1218,{roughness:.35,metalness:.1}), 0, .02, 1.5, g);
@@ -418,20 +430,31 @@ const GAL=52; const workCards=[]; let workEnter=0;
   const glass=new THREE.Mesh(new THREE.PlaneGeometry(24, GF), new THREE.MeshPhysicalMaterial({ color:0x6fb0e0, transparent:true, opacity:.1, roughness:.1, side:THREE.DoubleSide, depthWrite:false })); glass.position.set(0, GF/2, 7.5); g.add(glass);
   // picture rail (thin warm strip) above each row
   const railM=new THREE.MeshBasicMaterial({ color:amberC(.9) });
-  { const r=new THREE.Mesh(new THREE.BoxGeometry(14, .03, .12), railM); r.position.set(-1, 3.2, -4.3); g.add(r); }
-  lamp(GAL-1, GF-1.0, 0, 0xe8d2b0, 70, 26, 2);
+  { const r=new THREE.Mesh(new THREE.BoxGeometry(14, .03, .12), railM); r.position.set(-1, 3.2, -4.3); g.add(r); galRail=r; }
+  galLamp=lamp(GAL-1, GF-1.0, 0, 0xe8d2b0, 70, 26, 2);
   pool(-1, -2, 0xf2b25c, 12, .14, .06);
   const H=1.1, GAP=.3;
-  [PROJECTS.slice(0,6), PROJECTS.slice(6,12)].forEach((row, r)=>{
-    const ws=row.map(pj=>H*Math.min(pj.ratio, 1.6)); const total=ws.reduce((a,b)=>a+b,0)+GAP*(ws.length-1);
-    let x=-1-total/2; const y = r===0 ? 2.45 : 1.05;
-    row.forEach((pj,i)=>{
-      const w=ws[i]; const cx=x+w/2; x+=w+GAP;
-      const c=photoCard({ url:pj.img, w, h:H, imgRatio:pj.ratio, radius:.04, dim:.8 }); c.position.set(cx, y, -4.28); g.add(c);
-      const lb=labelSprite(pj.name, { sub:pj.metric.join(' '), width:Math.max(w, 1.1), size:34 }); lb.position.set(cx, y-H/2-.19, -4.27); g.add(lb); lb.material.opacity=0;
-      const h=hoverable(c, { kind:'project', data:pj }, new THREE.Vector3(0,0,.1), lb); h.slide=1.4+r*.4; h.i=r*6+i; c.userData.card.setOpacity(0); workCards.push(h);
-    });
+  PROJECTS.forEach((pj,i)=>{
+    const w=H*Math.min(pj.ratio, 1.6);
+    const c=photoCard({ url:pj.img, w, h:H, imgRatio:pj.ratio, radius:.04, dim:.8 }); g.add(c);
+    const lb=labelSprite(pj.name, { sub:pj.metric.join(' '), width:Math.max(w, 1.1), size:34 }); g.add(lb); lb.material.opacity=0;
+    const h=hoverable(c, { kind:'project', data:pj }, new THREE.Vector3(0,0,.1), lb); h.i=i; h.w=w; c.userData.card.setOpacity(0); workCards.push(h);
   });
+  // desktop: two rows of six on the wall; phone: a 3×4 stack that fits a portrait frame (same meshes, repositioned)
+  placeWork=(mobile)=>{
+    if (galLamp) galLamp.intensity = mobile ? 16 : 70; if (galRail) galRail.visible = !mobile;
+    if (!mobile){
+      [workCards.slice(0,6), workCards.slice(6,12)].forEach((row, r)=>{
+        const total=row.reduce((a,h)=>a+h.w,0)+GAP*(row.length-1); let x=-1-total/2; const y = r===0 ? 2.45 : 1.05;
+        row.forEach((h,i)=>{ const cx=x+h.w/2; x+=h.w+GAP; h.mesh.scale.setScalar(1); h.base.set(cx, y, -4.28); h.mesh.position.copy(h.base); h.label.scale.setScalar(1); h.label.position.set(cx, y-H/2-.19, -4.27); h.slide=1.4+r*.4; });
+      });
+    } else {
+      const CELL=.98, CG=.1, ROW=.84;
+      workCards.forEach((h,i)=>{ const col=i%3, r=Math.floor(i/3); const sc=Math.min(1, CELL/h.w); const cx=-1+(col-1)*(CELL+CG), y=3.1-r*ROW;
+        h.mesh.scale.setScalar(sc); h.base.set(cx, y, -4.28); h.mesh.position.copy(h.base); h.label.scale.setScalar(.78); h.label.position.set(cx, y-(H*sc)/2-.15, -4.27); h.slide=.9+r*.25; });
+    }
+  };
+  placeWork(portrait);
 }
 
 /* ---------- server room (x = 78) ---------- */
@@ -480,7 +503,7 @@ const SRV=78; let leds, ledColors=[], traffic; const loadCards=[]; let loadEnter
 }
 
 /* ---------- team floor (x = 113) ---------- */
-const TEAM=113; const teamCards=[]; let teamEnter=0;
+const TEAM=113; const teamCards=[]; let teamEnter=0; let placeTeam=()=>{};
 {
   const g=new THREE.Group(); g.position.x=TEAM; scene.add(g); interiors.push(g);
   box(34, .04, 26, matStd(0x0d1016,{roughness:.6}), 0, .02, 0, g);
@@ -512,16 +535,29 @@ const TEAM=113; const teamCards=[]; let teamEnter=0;
     const CX=5.15, LW=1.25, LH=1.56, CW=.88, CH=1.1, GAP=.2;
     const half=Math.ceil(TEAM_CREW.length/2), left=TEAM_CREW.slice(0,half), right=TEAM_CREW.slice(half);
     const leadsW=TEAM_LEADS.length*LW+(TEAM_LEADS.length-1)*GAP;
-    const put=(m, x, lead, i)=>{
-      const w=lead?LW:CW, h=lead?LH:CH, y=h/2+.68, z=lead?1.9:1.45;
-      const c=photoCard({ url:m.img, w, h, imgRatio:.8, radius:lead?.06:.05, dim:lead?.92:.82, borderColor:lead?0xf2b25c:0x1c2330, border:lead?.03:.022 }); c.position.set(x, y, z); g.add(c);
-      const lb=labelSprite(m.name, { sub:m.role, width:lead?1.9:1.45, size:lead?44:34 }); lb.position.set(x, y-h/2-(lead?.26:.2), z+.01); g.add(lb); lb.material.opacity=0;
-      box(.05, y-h/2, .05, matDark, x, (y-h/2)/2, z-.02, g); // slim stand
-      const hv=hoverable(c, { kind:'person', data:m }, new THREE.Vector3(0,0,.12), lb); hv.i=i; c.userData.card.setOpacity(0); teamCards.push(hv);
+    const mk=(m, lead, i)=>{
+      const w=lead?LW:CW, h=lead?LH:CH;
+      const c=photoCard({ url:m.img, w, h, imgRatio:.8, radius:lead?.06:.05, dim:lead?.92:.82, borderColor:lead?0xf2b25c:0x1c2330, border:lead?.03:.022 }); g.add(c);
+      const lb=labelSprite(m.name, { sub:m.role, width:lead?1.9:1.45, size:lead?44:34 }); g.add(lb); lb.material.opacity=0;
+      const stand=box(.05, 1, .05, matDark, 0, 0, 0, g); // slim stand, sized in placeTeam
+      const hv=hoverable(c, { kind:'person', data:m }, new THREE.Vector3(0,0,.12), lb); hv.i=i; hv.w=w; hv.h=h; hv.lead=lead; hv.stand=stand; c.userData.card.setOpacity(0); teamCards.push(hv);
+      return hv;
     };
-    TEAM_LEADS.forEach((m,i)=>put(m, CX-leadsW/2+LW/2+i*(LW+GAP), true, i));
-    left.forEach((m,i)=>put(m, CX-leadsW/2-GAP-CW/2-(left.length-1-i)*(CW+GAP), false, TEAM_LEADS.length+i));
-    right.forEach((m,i)=>put(m, CX+leadsW/2+GAP+CW/2+i*(CW+GAP), false, TEAM_LEADS.length+left.length+i));
+    const L=TEAM_LEADS.map((m,i)=>mk(m,true,i)), A=left.map((m,i)=>mk(m,false,TEAM_LEADS.length+i)), B=right.map((m,i)=>mk(m,false,TEAM_LEADS.length+left.length+i));
+    const put=(hv, x, y, z, sc)=>{ hv.mesh.scale.setScalar(sc); hv.base.set(x, y, z); hv.mesh.position.copy(hv.base); hv.label.scale.setScalar(sc); hv.label.position.set(x, y-(hv.h*sc)/2-(hv.lead?.26:.2)*sc, z+.01);
+      const sh=y-(hv.h*sc)/2; hv.stand.visible=sh>.3; hv.stand.scale.set(1, Math.max(.01,sh), 1); hv.stand.position.set(x, sh/2, z-.02); };
+    placeTeam=(mobile)=>{
+      if (!mobile){
+        L.forEach((hv,i)=>put(hv, CX-leadsW/2+LW/2+i*(LW+GAP), LH/2+.68, 1.9, 1));
+        A.forEach((hv,i)=>put(hv, CX-leadsW/2-GAP-CW/2-(A.length-1-i)*(CW+GAP), CH/2+.68, 1.45, 1));
+        B.forEach((hv,i)=>put(hv, CX+leadsW/2+GAP+CW/2+i*(CW+GAP), CH/2+.68, 1.45, 1));
+      } else {
+        const ls=.8, cs=.74, lw=LW*ls, cw=CW*cs, g1=.16, g2=.14; const crew=[...A, ...B];
+        L.forEach((hv,i)=>put(hv, CX+(i-(L.length-1)/2)*(lw+g1), 3.15, 1.9, ls));
+        crew.forEach((hv,i)=>{ const col=i%3, r=Math.floor(i/3); put(hv, CX+(col-1)*(cw+g2), 1.78-r*1.0, 1.45+r*.02, cs); });
+      }
+    };
+    placeTeam(portrait);
   }
 }
 
@@ -578,36 +614,41 @@ function buildKeys(){
   const docH=document.documentElement.scrollHeight; const den=Math.max(1, docH-vh());
   tops=sections.map(s=>s.offsetTop);
   const P=(i,f)=> Math.min(1, (tops[i] + f*vh())/den);
-  const K=(i,f,pos,look,fog)=>({ p:P(i,f), pos:new THREE.Vector3(...pos), look:new THREE.Vector3(...look), fog });
+  // phones: subject sits in the lower half under the text column — explicit shots where it matters, otherwise pull back (×1.35) and aim higher (+1.0)
+  const K=(i,f,pos,look,fog,mpos,mlook)=>{
+    let P3=new THREE.Vector3(...pos), L3=new THREE.Vector3(...look);
+    if (portrait){ if (mpos){ P3=new THREE.Vector3(...mpos); L3=new THREE.Vector3(...mlook); } else { L3.y+=1.0; P3.sub(L3).multiplyScalar(1.35).add(L3); } }
+    return { p:P(i,f), pos:P3, look:L3, fog };
+  };
   keys=[
     // 00 street
-    K(0,0.00,[ 2.0,1.6,62],[ 0,12,0],[30,90]),
-    K(0,0.75,[ 1.5,1.7,57],[ 0,11,0],[30,90]),
+    K(0,0.00,[ 2.0,1.6,62],[ 0,12,0],[30,90],[ 0.6,1.5,58.5],[ 3.4,1.0,51.5]),
+    K(0,0.75,[ 1.5,1.7,57],[ 0,11,0],[30,90],[ 1.0,1.6,56.0],[ 3.2,1.2,51.5]),
     // door
     K(1,-.15,[ 0,2.0,13],[ 0,2.4,-2],[10,40]),
     // 01 lobby
-    K(1,0.00,[-4.5,2.1,6.5],[ 0.2,1.5,-1.6],[8,30]),
-    K(1,0.75,[-3.4,1.8,4.2],[-0.4,1.4,-1.4],[8,30]),
+    K(1,0.00,[-4.5,2.1,6.5],[ 0.2,1.5,-1.6],[8,30],[-3.8,2.1,7.3],[-2.6,1.9,-1.1]),
+    K(1,0.75,[-3.4,1.8,4.2],[-0.4,1.4,-1.4],[8,30],[-3.5,2.0,6.4],[-2.8,1.8,-1.1]),
     // corridor to lab
     K(2,-.2,[ 13,2.2,3],[ 24,2,-2],[8,30]),
     // 02 lab
-    K(2,0.00,[LAB-7.6,2.6,7.4],[LAB-2.4,2.3,-4],[8,34]),
-    K(2,0.75,[LAB-5.4,2.3,5.6],[LAB-1.6,2.5,-4.5],[8,34]),
+    K(2,0.00,[LAB-7.6,2.6,7.4],[LAB-2.4,2.3,-4],[8,34],[LAB-5.6,2.9,8.8],[LAB+0.4,3.3,-3.6]),
+    K(2,0.75,[LAB-5.4,2.3,5.6],[LAB-1.6,2.5,-4.5],[8,34],[LAB-4.8,2.7,7.6],[LAB+0.6,3.2,-3.8]),
     // corridor into the gallery
     K(3,-.2,[ GAL-15,2.2,3.5],[ GAL-3,2.0,-3.5],[8,34]),
     // 03 gallery wall
-    K(3,0.00,[GAL-1.0,2.3,6.6],[GAL-1.0,2.0,-4.3],[8,34]),
-    K(3,0.75,[GAL-0.6,2.25,6.0],[GAL-0.8,2.0,-4.3],[8,34]),
+    K(3,0.00,[GAL-1.0,2.3,6.6],[GAL-1.0,2.0,-4.3],[8,34],[GAL-1.0,2.5,3.4],[GAL-1.0,3.45,-4.3]),
+    K(3,0.75,[GAL-0.6,2.25,6.0],[GAL-0.8,2.0,-4.3],[8,34],[GAL-1.0,2.5,3.1],[GAL-1.0,3.4,-4.3]),
     // corridor
     K(4,-.2,[ SRV-18,2.4,0],[ SRV-4,1.8,0],[8,36]),
     // 04 server aisle
-    K(4,0.00,[SRV-11.5,2.1,0],[SRV+2,1.6,0],[6,40]),
-    K(4,0.75,[SRV-7.5,1.9,.2],[SRV+6,1.5,0],[6,40]),
+    K(4,0.00,[SRV-11.5,2.1,0],[SRV+2,1.6,0],[6,40],[SRV-11.0,2.9,0.2],[SRV+3,0.9,0]),
+    K(4,0.75,[SRV-7.5,1.9,.2],[SRV+6,1.5,0],[6,40],[SRV-8.5,2.7,0.2],[SRV+5,0.9,0]),
     // corridor
     K(5,-.2,[ TEAM-20,2.8,.3],[ TEAM-6,1.6,0],[8,40]),
     // 05 team floor: the crew in the aisle
-    K(5,0.00,[TEAM+5.1,2.4,12.0],[TEAM+5.15,1.3,.7],[8,46]),
-    K(5,0.50,[TEAM+5.0,2.3,11.0],[TEAM+5.15,1.35,.6],[8,46]),
+    K(5,0.00,[TEAM+5.1,2.4,12.0],[TEAM+5.15,1.3,.7],[8,46],[TEAM+5.15,3.0,8.8],[TEAM+5.15,3.55,1.6]),
+    K(5,0.50,[TEAM+5.0,2.3,11.0],[TEAM+5.15,1.35,.6],[8,46],[TEAM+5.15,3.0,8.4],[TEAM+5.15,3.5,1.6]),
     // up and out
     K(6,-.45,[TEAM+6,16,22],[TEAM-10,8,0],[20,160]),
     K(6,-.2,[ 52,46,34],[ 0,44,0],[30,260]),
@@ -628,7 +669,10 @@ function sample(ps){
 }
 const onScroll=()=>{ const den=Math.max(1, document.documentElement.scrollHeight-vh()); p=Math.min(1, scrollY/den); };
 addEventListener('scroll', onScroll, { passive:true });
-addEventListener('resize', ()=>{ renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); buildKeys(); onScroll(); });
+addEventListener('resize', ()=>{ renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); camera.aspect=innerWidth/innerHeight;
+  const was=portrait; portrait=isPortrait(); camera.fov=portrait?54:42; camera.updateProjectionMatrix();
+  if (was!==portrait){ placeWork(portrait); placeTeam(portrait); bot.group.scale.setScalar(portrait?.78:.95); const sp=SPOTS[chapter]; if (sp){ const pos=portrait?(sp.m||sp.pos):sp.pos; bot.place(pos.clone()); } }
+  buildKeys(); onScroll(); });
 
 /* ---------- chapter state (rail / nav / reveals) ---------- */
 const rail=[...document.querySelectorAll('#rail span')]; const navA=[...document.querySelectorAll('#top nav a')];
@@ -638,17 +682,18 @@ sections.forEach(s=>{ const h=s.querySelector('h1'); h.innerHTML=h.textContent.t
 /* ---------- Byte per chapter ---------- */
 const V=(x,y,z)=>new THREE.Vector3(x,y,z);
 const SPOTS=[
-  { pos:V(3.9,0,52.5), mood:'wave', line:'hero' },
+  { pos:V(3.9,0,52.5), mood:'wave', line:'hero', m:V(3.4,0,51.5) },
   { pos:V(-3.4,0,-0.1), mood:'talk', line:'voice' },
   { pos:V(LAB-1.0,0,-1.4), mood:'point', at:V(LAB+2.4,2.9,-3.0), line:'intel' },
-  { pos:V(GAL-5.4,0,-1.2), mood:'point', at:V(GAL-3,2.4,-4.3), line:'work' },
+  { pos:V(GAL-5.4,0,-1.2), mood:'point', at:V(GAL-3,2.4,-4.3), line:'work', m:V(GAL-3.6,0,-0.4), mat:V(GAL-1,2.6,-4.3) },
   { pos:V(SRV-5.2,0,-1.3), mood:'cheer', line:'load' },
-  { pos:V(TEAM-0.4,0,1.9), mood:'wave', line:'team' },
-  { pos:V(-4.2,TH+.3,0.2), mood:'point', at:V(-3,TH+1.1,-2), line:'contact' },
+  { pos:V(TEAM-0.4,0,1.9), mood:'wave', line:'team', m:V(TEAM+3.1,0,3.6) },
+  { pos:V(-4.2,TH+.3,0.2), mood:'point', at:V(-3,TH+1.1,-2), line:'contact', m:V(-0.6,TH+.3,1.2) },
 ];
 let sayTimer=0, firstSay=true;
 function stageByte(c){
-  const sp=SPOTS[c]; if (!sp) return;
+  const sp0=SPOTS[c]; if (!sp0) return;
+  const sp = portrait ? { ...sp0, pos:sp0.m||sp0.pos, at:sp0.mat||sp0.at } : sp0;
   const d=bot.group.position.distanceTo(sp.pos);
   if (d>12){ bot.place(sp.pos.clone().add(V(0,0,-.5))); bot.goTo(sp.pos.clone()); } else bot.goTo(sp.pos.clone());
   bot.hush(); clearTimeout(sayTimer);

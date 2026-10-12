@@ -102,3 +102,24 @@ Khánh's feedback on round 1: "chung chung quá" (too generic). Team must show *
 cd docs/layouts && node tools/shots.mjs option-3-black-box --click
 ```
 Prints `{fps, sections, hovers, clicks, errs}` and writes `shots/<name>-<section>.jpg`, `-hover.jpg`, `-click.jpg`. Expect 7 sections, `errs: []`, hovers for at least `work` and `team` (the probe sweeps a grid around the viewport centre, so pickables must sit near the middle third of the frame), fps ≥ 55. Open every jpg (Read tool) and fix: headings over cards, unreadable faces, Byte clipped or in the dark, blown-out cards (lower `dim`), cards intersecting props, bubble off-screen. Also `node --check` the extracted module script before each run. Iterate until clean.
+
+---
+
+# Round 3 (2026-10-12, evening) — phones
+
+Khánh checked the live site on his phone: option 5 reads fine, options 1–4 do not (desktop camera framing on a 390×844 portrait: cards cropped at the edges, headings printed over the 3D subject, Byte or the cards behind the paragraph). Fix options 1–4 so every chapter reads on a phone, keeping the desktop shots exactly as they are.
+
+## Rules for portrait / narrow viewports (`innerWidth <= 720` or `aspect < 0.8`)
+1. **Stack, don't overlap**: text in the top ~45% of the screen (kicker, heading, one short paragraph), the 3D subject in the bottom ~55%. Achieve it in the camera, not with CSS hacks: per chapter either raise the look point / lower the camera so the subject sits in the lower half, or multiply the camera's distance from the subject by ~1.5–1.8 for portrait, and widen `camera.fov` (e.g. 38 → 52) when `aspect < 0.8`. Recompute on resize.
+2. **Cards must fit**: the whole TEAM group and the whole WORK grid must be inside the frame with ≥ 16 px side margin at 390 px wide; faces ≥ 64 px tall (in CSS px). If the desktop staging is a wide row, re-grid for portrait (e.g. 2 leads on top, crew 3×2 below; WORK 3 columns × 4 rows) — do it by repositioning the same meshes when portrait is detected (no duplicate meshes).
+3. **Byte** stays visible and small on phones (scale ×0.8), never under the text column; the shared bubble is now a fixed strip above the chapter overlays on phones (handled in `shared/sb-bot.js`, nothing to do).
+4. **Text**: headings `clamp(34px, 9.5vw, 56px)` on phones, paragraphs ≤ 3 lines, hide the chapter rail, nav → MENU (already), overlays (`.ov-*`) full-width at the bottom with 16 px gutters and ≤ 40% of the viewport height. Keep `pointer-events` only on interactive overlays.
+5. **Touch**: tap a card = open detail (no hover state needed); the picker's pointerdown/up already does this — verify with `page.tap` if you like. The detail panel is one column on phones (shared CSS).
+6. **No horizontal scroll** (`hscroll` in the tool must be 0), no console errors, fps ≥ 50 on the headless phone viewport.
+
+## QA
+```
+cd docs/layouts && node tools/shots.mjs option-1-night-shift --mobile     # → shots/<name>-m-<section>.jpg, prints hscroll + fps + errs
+node tools/shots.mjs option-1-night-shift                                  # desktop must be unchanged (compare with the previous jpgs)
+```
+Open every `-m-` jpg with Read: text and 3D never overlap, all 8 faces / 12 projects visible, Byte visible, nothing clipped at the edges.

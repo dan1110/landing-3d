@@ -120,14 +120,31 @@
   @media (pointer:fine){#cur{display:block}}
 
   @media (max-width:720px){
+    /* phones: text stacks in the top ~45%, the 3D subject is framed in the lower half by the portrait camera keys */
     .topbar{padding:18px 16px}
     .topbar nav{display:none}
     .topbar .menu{display:block}
     .rail,.rail-lbl{display:none}
-    section{padding:100px 16px 120px}
-    .hint,.rule{right:16px;left:16px}
-    .card{right:16px;left:16px;width:auto;bottom:90px}
-    .counters{gap:22px;flex-wrap:wrap}
+    section,#work,#team{justify-content:flex-start;padding:96px 16px 0;min-height:100vh}
+    .label{margin-bottom:12px;font-size:9px}
+    h1,h2,#work h2,#team h2{font-size:clamp(34px,9.5vw,56px);max-width:none;line-height:1}
+    .body{margin-top:14px;max-width:none;font-size:15px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+    .eyebrow{margin-bottom:10px}
+    .stats{margin-top:14px;font-size:9px;line-height:1.8}
+    .cap{margin-top:10px;max-width:none;font-size:9px;line-height:1.6}
+    .align-right{align-items:flex-start;text-align:left}
+    .align-right h2,.align-right .body,.align-right .cap{text-align:left}
+    .hint{left:16px;right:auto;bottom:24px}
+    .rule{display:none}
+    .plate{height:22vh}
+    .card{position:fixed;left:16px;right:16px;bottom:16px;width:auto;padding:12px 14px;gap:8px;z-index:15;max-height:38vh}
+    .card .sub:last-child{display:none}
+    body[data-ch="1"] .sb-bubble{bottom:150px}
+    .counters{gap:18px;margin-top:16px;font-size:10px;flex-wrap:wrap}
+    .counters b{font-size:20px}
+    form.mock{margin-top:14px;gap:8px;width:100%}
+    form.mock input,form.mock textarea{font-size:15px;padding:8px 0}
+    form.mock button{padding:12px 18px}
     footer{padding:28px 16px}
   }
 </style>
@@ -278,6 +295,11 @@ scene.background = new THREE.Color(C.ink);
 scene.fog = new THREE.FogExp2(C.slate, 0.0085);
 
 const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.5, 600);
+// Phones (portrait): wider fov, camera keys pulled back and aimed higher so the subject sits in the lower half under the text.
+const isPortrait = () => innerWidth <= 720 || innerWidth/innerHeight < 0.8;
+let portrait = isPortrait();
+function applyFov(){ camera.fov = portrait ? 56 : 42; camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); }
+applyFov();
 
 // ---------- sky dome with faint horizon glow ----------
 {
@@ -584,7 +606,7 @@ archBlocks.forEach((b,k)=>picker.add(b.mesh, { kind:'arch', data:{ name:archLabe
 
 // ---------- WORK: billboard gantry across the work square (clearing at i=-1..0, j=1..2) ----------
 const workC = new THREE.Vector3(6, 0, roadCentre(1)); // gantry plane x=6, centred on the avenue z=26
-const workCards = [];
+const workCards = [], workEntries = [], workStrips = [];
 {
   const frameMat = new THREE.MeshStandardMaterial({ color:0x12171f, roughness:0.85 });
   const H = 2.6, GAP = 0.55;
@@ -600,23 +622,25 @@ const workCards = [];
       const base = new THREE.Vector3(workC.x, rowY[r], cz); card.position.copy(base); scene.add(card);
       const lab = labelSprite(p.name, { sub:p.metric.join(' '), width:Math.min(w, 3.2) }); lab.rotation.y = -Math.PI/2; lab.position.set(workC.x-0.02, rowY[r]-H/2-0.42, cz); scene.add(lab);
       picker.add(card, { kind:'project', data:p });
-      pickables.push({ mesh:card, label:lab, base, rise:1.6, delay:(r*4+i)*0.07, reveal:'work' });
+      const pk = { mesh:card, label:lab, base, rise:1.6, delay:(r*4+i)*0.07, reveal:'work' }; pickables.push(pk);
       // backing panel so the card reads as a billboard, not a floating image
       const back = new THREE.Mesh(new THREE.BoxGeometry(0.18, H+0.3, w+0.3), frameMat); back.position.set(workC.x+0.12, rowY[r], cz); scene.add(back);
       workCards.push(card);
+      workEntries.push({ card, lab, back, pk, w, H, desk:{ base:base.clone(), lab:lab.position.clone(), back:back.position.clone() }, idx:r*4+i });
     });
   });
   // gantry: two posts, two beams, light strips over each row
   const postG = new THREE.BoxGeometry(0.5, 14.6, 0.5); postG.translate(0, 7.3, 0);
   [workC.z-8.1, workC.z+8.1].forEach(z=>{ const po = new THREE.Mesh(postG, frameMat); po.position.set(workC.x+0.3, 0, z); scene.add(po); });
   [14.35, 11.25, 8.15].forEach(y=>{ const beam = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.35, 16.7), frameMat); beam.position.set(workC.x+0.3, y, workC.z); scene.add(beam);
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 16.0), new THREE.MeshStandardMaterial({ color:0, emissive:C.bone, emissiveIntensity:0.55 })); strip.position.set(workC.x-0.1, y-0.2, workC.z); scene.add(strip); });
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 16.0), new THREE.MeshStandardMaterial({ color:0, emissive:C.bone, emissiveIntensity:0.55 })); strip.position.set(workC.x-0.1, y-0.2, workC.z); scene.add(strip); workStrips.push(strip); });
   // ground pad under the gantry
   const pad = new THREE.Mesh(new THREE.BoxGeometry(22, 0.2, 22), new THREE.MeshStandardMaterial({ color:0x10141b, roughness:0.85 })); pad.position.set(workC.x-6, 0.1, workC.z); scene.add(pad);
   triCount += 12*40;
 }
 
 // ---------- LOAD: three real cases as a holographic poster row over the interchange ----------
+const loadEntries = [];
 {
   const cx = roadCentre(5), cz = roadCentre(0);
   const camP = new THREE.Vector3(cx-30, 20, cz+26), look = new THREE.Vector3(cx+6, 6, cz-6);
@@ -631,12 +655,13 @@ const workCards = [];
     const lab = labelSprite(c.name, { sub:c.fact, width:W+1.6 }); lab.rotation.y = yaw; lab.position.copy(pos).add(new THREE.Vector3(Math.sin(yaw)*0.03, -H/2-0.8, Math.cos(yaw)*0.03)); scene.add(lab);
     const bar = new THREE.Mesh(new THREE.BoxGeometry(W+0.6, 0.08, 0.08), barMat); bar.rotation.y = yaw; bar.position.copy(pos).add(new THREE.Vector3(0, -H/2-0.25, 0)); scene.add(bar);
     picker.add(card, { kind:'case', data:c });
-    pickables.push({ mesh:card, label:lab, base:pos.clone(), rise:0.8, delay:i*0.12, reveal:'load' });
+    const pk = { mesh:card, label:lab, base:pos.clone(), rise:0.8, delay:i*0.12, reveal:'load' }; pickables.push(pk);
+    loadEntries.push({ card, lab, bar, pk, centre, right, yaw, H });
   });
 }
 
 // ---------- TEAM: 11 real faces as lit standees on the plaza ----------
-const teamSpot = {};
+const teamSpot = {}, teamEntries = [];
 {
   const camP = new THREE.Vector3(plazaC.x-12, 3.0, plazaC.z+2), look = new THREE.Vector3(plazaC.x+1, 1.0, plazaC.z);
   const d = look.clone().sub(camP).normalize(); const right = new THREE.Vector3(-d.z, 0, d.x).normalize();
@@ -661,17 +686,19 @@ const teamSpot = {};
       lab.position.copy(pos).add(new THREE.Vector3(Math.sin(yaw)*0.02, row.labelUp ? h/2+0.28 : -(h/2+0.42), Math.cos(yaw)*0.02)); scene.add(lab);
       const postH = pos.y - h/2 - 0.25; const post = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, postH, 8), postMat); post.position.set(pos.x, 0.25+postH/2, pos.z); scene.add(post);
       picker.add(card, { kind:'person', data:m });
-      pickables.push({ mesh:card, label:lab, base:pos.clone(), rise:0.35, delay:(order++)*0.07, reveal:'team' });
+      const pk = { mesh:card, label:lab, base:pos.clone(), rise:0.35, delay:(order++)*0.07, reveal:'team' }; pickables.push(pk);
+      teamEntries.push({ card, lab, post, pk, m, lead:row.lead, buildScale:row.scale, h, postH, desk:{ base:pos.clone(), yaw, lab:lab.position.clone(), post:post.position.clone() } });
     });
   });
   const bp = camP.clone().addScaledVector(d, 5.6).addScaledVector(right, -1.8); bp.y = 0.25;
   teamSpot.pos = bp; teamSpot.from = bp.clone().addScaledVector(right, -1.4).addScaledVector(d, 0.6);
+  teamSpot.deskPos = bp.clone(); teamSpot.deskFrom = teamSpot.from.clone();
 }
 pickables.forEach(pk=>{ pk.mesh.userData.card.setOpacity(0); pk.label.material.opacity = 0; pk.k = 0; });
 
 // ---------- camera path ----------
 const topY = towerH + 1.6;
-const keys = [
+const keysD = [
   { p:[-70, 60, 95], l:[  0, 28,   0] },                        // 00 aerial: closer/lower, tower ~40% of frame height
   { p:[boothPos.x-6.5, 2.4, boothPos.z+7.5], l:[boothPos.x+0.2, 1.5, boothPos.z] }, // 01 booth
   { p:[-14, 30, 108], l:[ 14, 10,  47] },                        // 02 district: 3/4 elevated, ~65 m, blocks sit left/centre
@@ -680,6 +707,23 @@ const keys = [
   { p:[plazaC.x-12, 3.0, plazaC.z+2], l:[plazaC.x+1, 1.0, plazaC.z] }, // 05 plaza: ~12 m from group centre, 3 m up, slightly down
   { p:[towerC.x, topY, towerC.z+3.6], l:[towerC.x+70, 31, towerC.z+70] }, // 06 tower top: ~32° down along the diagonal, lit grid fills lower 2/3
 ];
+// Portrait keys: same subjects, camera pulled back by `pull` and the look point lifted by `lift` × the frame's half-height
+// (fov 56 → half-height ≈ 0.53·distance), which drops the subject into the lower half of a phone screen. WORK/TEAM/LOAD are re-gridded (below).
+function portraitKey(k, pull, lift, override){
+  const p = new THREE.Vector3(...k.p), l = new THREE.Vector3(...k.l); if (override) { if (override.p) p.set(...override.p); if (override.l) l.set(...override.l); }
+  const d = l.clone().sub(p); const D = d.length()*pull; d.normalize(); const pp = l.clone().addScaledVector(d, -D);
+  const ll = l.clone(); ll.y += lift*0.53*D; return { p:[pp.x, pp.y, pp.z], l:[ll.x, ll.y, ll.z] };
+}
+const keysP = [
+  portraitKey(keysD[0], 1.0, 0.42),
+  portraitKey(keysD[1], 0.85, 0.22),
+  portraitKey(keysD[2], 1.1, 0.42),
+  portraitKey(keysD[3], 1.0, 0.0, { p:[-15.5, 7.5, workC.z], l:[workC.x, 13.9, workC.z] }), // 03 work: 4×3 grid centred on the gantry, pushed down by the lift
+  portraitKey(keysD[4], 1.08, 0.40),
+  portraitKey(keysD[5], 1.0, 0.0, { p:[plazaC.x-12, 3.4, plazaC.z+2], l:[plazaC.x+1, 5.3, plazaC.z] }), // 05 team: 2 leads + 3×2 crew stacked, group centred in the lower half
+  portraitKey(keysD[6], 1.0, 0.40),
+];
+let keys = portrait ? keysP : keysD;
 // Byte's spot per chapter. Hover spots are camera-relative (computed from the static key, not the drifting camera).
 // camera-relative frame: fwd along the view, rgt to screen-right, up perpendicular. Hover spots follow the LIVE camera (damped),
 // so Byte stays in frame even while the camera is still gliding toward a keyframe or breathing.
@@ -687,32 +731,34 @@ const _d = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3
 function camRelLive(fwd, rgt, up, out = new THREE.Vector3()){ camera.getWorldDirection(_d); _r.set(-_d.z, 0, _d.x).normalize(); _u.crossVectors(_r, _d).normalize(); return out.copy(camera.position).addScaledVector(_d, fwd).addScaledVector(_r, rgt).addScaledVector(_u, up); }
 function camRel(k, fwd, rgt, up){ const p = new THREE.Vector3(...keys[k].p), l = new THREE.Vector3(...keys[k].l); const d = l.clone().sub(p).normalize(); const r = new THREE.Vector3(-d.z, 0, d.x).normalize(); const u = new THREE.Vector3().crossVectors(r, d).normalize(); return p.clone().addScaledVector(d, fwd).addScaledVector(r, rgt).addScaledVector(u, up); }
 const botSpots = [
-  { rel:[7.5, 3.0, -2.1], hover:true, mood:'wave', line:'hero' },
+  { rel:[7.5, 3.0, -2.1], relP:[7.5, 1.1, -1.7], hover:true, mood:'wave', line:'hero' },
   { pos:new THREE.Vector3(boothPos.x + 0.4, 0.2, boothPos.z + 0.3), from:new THREE.Vector3(boothPos.x + 2.2, 0.2, boothPos.z + 1.4), mood:'talk', line:'voice' },
-  { rel:[7.5, -3.1, -2.0], hover:true, mood:'point', point:new THREE.Vector3(blockCenter(2,3).x, 28, blockCenter(2,3).z), line:'intel' },
-  { rel:[7.0, -3.0, -2.5], hover:true, mood:'point', point:new THREE.Vector3(workC.x, 9.5, workC.z), line:'work' },
-  { rel:[7.5, 2.2, -2.1], hover:true, mood:'cheer', line:'load' },
-  { pos:teamSpot.pos, from:teamSpot.from, mood:'wave', line:'team' },
-  { rel:[8.5, 4.0, -1.5], hover:true, mood:'point', pointRel:[7, -3.4, -1.4], line:'contact' }, // off the roof's right edge, clear of the parapet line
+  { rel:[7.5, -3.1, -2.0], relP:[7.5, -1.2, -1.7], hover:true, mood:'point', point:new THREE.Vector3(blockCenter(2,3).x, 28, blockCenter(2,3).z), line:'intel' },
+  { rel:[7.0, -3.0, -2.5], relP:[7.0, -1.45, -2.95], hover:true, mood:'point', point:new THREE.Vector3(workC.x, 9.5, workC.z), line:'work' },
+  { rel:[7.5, 2.2, -2.1], relP:[7.5, 1.2, -2.85], hover:true, mood:'cheer', line:'load' },
+  { pos:teamSpot.pos, from:teamSpot.from, relP:[6.0, -1.05, -2.6], mood:'wave', line:'team' },
+  { rel:[8.5, 4.0, -1.5], relP:[8.5, 1.0, -1.9], hover:true, mood:'point', pointRel:[7, -3.4, -1.4], pointRelP:[7, -1.6, -1.2], line:'contact' }, // off the roof's right edge, clear of the parapet line
 ];
+const relOf = (sp) => (portrait && sp.relP) ? sp.relP : sp.rel, pointRelOf = (sp) => (portrait && sp.pointRelP) ? sp.pointRelP : sp.pointRel, hoverOf = (sp) => sp.hover || (portrait && !!sp.relP);
 const _tgt = new THREE.Vector3();
 function followBot(dt){
-  const sp = botSpots[botIdx]; if (!sp || !sp.hover) return;
-  camRelLive(...sp.rel, _tgt); const k = 1 - Math.exp(-4*dt); const g = bot.group.position;
+  const sp = botSpots[botIdx]; if (!sp || !hoverOf(sp)) return;
+  camRelLive(...relOf(sp), _tgt); const k = 1 - Math.exp(-4*dt); const g = bot.group.position;
   g.x += (_tgt.x - g.x)*k; g.z += (_tgt.z - g.z)*k; bot.state.baseY += (_tgt.y - bot.state.baseY)*k;
-  if (sp.pointRel && bot.state.point) camRelLive(...sp.pointRel, bot.state.point);
+  if (pointRelOf(sp) && bot.state.point) camRelLive(...pointRelOf(sp), bot.state.point);
 }
-const posCurve = new THREE.CatmullRomCurve3(keys.map(k=>new THREE.Vector3(...k.p)), false, 'centripetal', 0.5);
-const lookCurve = new THREE.CatmullRomCurve3(keys.map(k=>new THREE.Vector3(...k.l)), false, 'centripetal', 0.5);
-const N = keys.length;
+let posCurve, lookCurve;
+function buildPath(){ keys = portrait ? keysP : keysD; posCurve = new THREE.CatmullRomCurve3(keys.map(k=>new THREE.Vector3(...k.p)), false, 'centripetal', 0.5); lookCurve = new THREE.CatmullRomCurve3(keys.map(k=>new THREE.Vector3(...k.l)), false, 'centripetal', 0.5); }
+buildPath();
+const N = keysD.length;
 let botTimer = 0, botIdx = -1;
 function botChapter(i){
   if (i===botIdx) return; botIdx = i; const sp = botSpots[i]; if (!sp) return;
   bot.hush(); clearTimeout(botTimer);
-  if (sp.hover) { bot.place(camRelLive(...sp.rel)); bot.state.faceAfter = 'camera'; }
+  if (hoverOf(sp)) { bot.place(camRelLive(...relOf(sp))); bot.state.faceAfter = 'camera'; }
   else { bot.place(sp.from || sp.pos); bot.goTo(sp.pos); }
   bot.state.point = null;
-  botTimer = setTimeout(()=>{ if (botIdx!==i) return; const pt = sp.point || (sp.pointRel && camRelLive(...sp.pointRel)); if (sp.mood==='point' && pt) bot.pointAt(pt); else bot.setMood(sp.mood); bot.say(BOT.lines[sp.line]); if (sp.mood==='point' && pt) setTimeout(()=>{ if (botIdx===i) bot.pointAt(pt); }, 50); }, sp.hover ? 450 : 900);
+  botTimer = setTimeout(()=>{ if (botIdx!==i) return; const pt = sp.point || (pointRelOf(sp) && camRelLive(...pointRelOf(sp))); if (sp.mood==='point' && pt) bot.pointAt(pt); else bot.setMood(sp.mood); bot.say(BOT.lines[sp.line]); if (sp.mood==='point' && pt) setTimeout(()=>{ if (botIdx===i) bot.pointAt(pt); }, 50); }, hoverOf(sp) ? 450 : 900);
 }
 
 // ---------- post ----------
@@ -753,7 +799,7 @@ addEventListener('scroll', readScroll, { passive:true });
 document.querySelectorAll('[data-reveal]').forEach(el=>{ const words = el.textContent.trim().split(/\s+/); el.innerHTML = words.map((w,i)=>`<span class="w" style="transition-delay:${i*40}ms">${w}</span>`).join(' '); });
 const io = new IntersectionObserver(es=>{ es.forEach(e=>{ if (e.intersectionRatio >= 0.4) { e.target.classList.add('in'); setActive(+e.target.dataset.i); } else if (e.intersectionRatio < 0.08) { e.target.classList.remove('in'); } }); }, { threshold:[0, 0.08, 0.4, 0.6] });
 sections.forEach(s=>io.observe(s));
-function setActive(i){ if (i===activeIdx) return; activeIdx = i; railLbl.textContent = labels[i];
+function setActive(i){ if (i===activeIdx) return; activeIdx = i; railLbl.textContent = labels[i]; document.body.dataset.ch = i;
   railEls.forEach((r,k)=>r.classList.toggle('active', k===i-1)); navLinks.forEach(a=>a.classList.toggle('active', +a.dataset.i===i));
   if (i===2 && archSince<0) archSince = clock.elapsedTime; if (i!==2) archSince = -1;
   for (const k in revealOf) { const key = revealOf[k]; if (+k===i) { if (since[key]<0) since[key] = clock.elapsedTime; } else since[key] = -1; }
@@ -801,8 +847,54 @@ jevBtn.addEventListener('click', ()=>{
 const cur = document.getElementById('cur'); let mx=innerWidth/2, my=innerHeight/2, cx=mx, cy=my;
 addEventListener('pointermove', e=>{ mx=e.clientX; my=e.clientY; }, { passive:true });
 
+// ---------- portrait layouts (same meshes, repositioned; desktop positions restored from `desk`) ----------
+function basisOf(key){ const p = new THREE.Vector3(...key.p), l = new THREE.Vector3(...key.l); const d = l.clone().sub(p); d.y = 0; d.normalize(); const r = new THREE.Vector3(-d.z, 0, d.x).normalize(); return { p, d, r }; }
+function layoutTeam(){
+  if (!portrait) {
+    teamEntries.forEach(e=>{ e.pk.base.copy(e.desk.base); e.card.rotation.y = e.desk.yaw; e.card.scale.setScalar(1); e.lab.scale.setScalar(1); e.lab.rotation.y = e.desk.yaw; e.lab.position.copy(e.desk.lab); e.post.position.copy(e.desk.post); e.post.scale.setScalar(1); });
+    teamSpot.pos.copy(teamSpot.deskPos); teamSpot.from.copy(teamSpot.deskFrom); return;
+  }
+  // company photo for a 390-px frame: 2 CEOs in front, the crew in two rows of 3 behind and higher, every label below its card
+  const { p:camP, d, r:right } = basisOf(keysP[5]);
+  const leads = teamEntries.filter(e=>e.lead), crew = teamEntries.filter(e=>!e.lead);
+  const rows = [ { list:leads, dist:11.0, y:1.4, scale:1.12, gap:1.42, off:0.95 }, { list:crew.slice(0, Math.ceil(crew.length/2)), dist:12.5, y:3.2, scale:0.92, gap:1.16, off:0.45 }, { list:crew.slice(Math.ceil(crew.length/2)), dist:14.0, y:4.9, scale:0.92, gap:1.16, off:0.45 } ];
+  rows.forEach(row=>{
+    const centre = camP.clone().addScaledVector(d, row.dist); centre.y = 0;
+    row.list.forEach((e, i)=>{
+      const k = i - (row.list.length-1)/2; const pos = centre.clone().addScaledVector(right, k*row.gap + row.off); pos.y = row.y;
+      const s = row.scale/e.buildScale, h = e.h*s; const yaw = Math.atan2(camP.x-pos.x, camP.z-pos.z);
+      e.pk.base.copy(pos); e.card.rotation.y = yaw; e.card.scale.setScalar(s);
+      e.lab.scale.setScalar(s); e.lab.rotation.y = yaw; e.lab.position.copy(pos).add(new THREE.Vector3(Math.sin(yaw)*0.02, -(h/2+0.36*s), Math.cos(yaw)*0.02));
+      const postH = pos.y - h/2 - 0.25; e.post.position.set(pos.x, 0.25+postH/2, pos.z); e.post.scale.set(1, postH/e.postH, 1);
+    });
+  });
+  const bp = camP.clone().addScaledVector(d, 6.2).addScaledVector(right, -1.25); bp.y = 0.25; teamSpot.pos.copy(bp); teamSpot.from.copy(bp).addScaledVector(right, -1.2).addScaledVector(d, 0.5);
+}
+function layoutWork(){
+  workStrips.forEach(m=>{ m.visible = !portrait; });
+  if (!portrait) { workEntries.forEach(e=>{ e.pk.base.copy(e.desk.base); e.card.scale.set(1,1,1); e.lab.scale.set(1,1,1); e.lab.position.copy(e.desk.lab); e.back.scale.set(1,1,1); e.back.position.copy(e.desk.back); }); return; }
+  // 3 columns × 4 rows between the gantry's light strips (y 14.15 / 11.05 / 7.95), cards at 0.72 scale so the widest fits a column
+  const s = 0.52, cols = 4, colZ = (c)=> workC.z + (c-1.5)*2.45, rowY = [11.3, 9.25, 7.2];
+  workEntries.forEach(e=>{
+    const c = e.idx % cols, r = Math.floor(e.idx / cols); const pos = new THREE.Vector3(workC.x, rowY[r], colZ(c));
+    e.pk.base.copy(pos); e.card.scale.set(s, s, 1); e.lab.scale.set(s, s, 1); e.lab.position.set(workC.x-0.02, rowY[r]-e.H*s/2-0.34, colZ(c));
+    e.back.scale.set(1, s, s); e.back.position.set(workC.x+0.12, rowY[r], colZ(c));
+  });
+}
+function layoutLoad(){
+  const s = portrait ? 0.82 : 1, spread = portrait ? 4.8 : 6.4;
+  loadEntries.forEach((e, i)=>{ const pos = e.centre.clone().addScaledVector(e.right, (i-1)*spread); e.pk.base.copy(pos); e.card.scale.set(s, s, 1); e.lab.scale.set(s, s, 1); e.lab.position.copy(pos).add(new THREE.Vector3(Math.sin(e.yaw)*0.03, -e.H*s/2-0.8*s, Math.cos(e.yaw)*0.03)); e.bar.scale.set(s, 1, 1); e.bar.position.copy(pos).add(new THREE.Vector3(0, -e.H*s/2-0.25, 0)); });
+}
+function applyLayout(){ bot.group.scale.setScalar(0.9*(portrait ? 0.8 : 1)); layoutTeam(); layoutWork(); layoutLoad(); buildPath(); }
+applyLayout();
+// taps: the shared picker only raycasts from pointermove, so seed it from the touch point before its pointerdown handler runs
+addEventListener('pointerdown', (e)=>{ if (e.pointerType === 'mouse') return; window.dispatchEvent(new PointerEvent('pointermove', { clientX:e.clientX, clientY:e.clientY, bubbles:true })); picker.update(); }, true);
+
 // resize
-addEventListener('resize', ()=>{ camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); readScroll(); });
+addEventListener('resize', ()=>{
+  const was = portrait; portrait = isPortrait(); applyFov(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); readScroll();
+  if (was !== portrait) { applyLayout(); const i = botIdx; botIdx = -1; if (loaded) botChapter(i); }
+});
 
 // ---------- loader ----------
 const loader = document.getElementById('loader'), bar = document.getElementById('bar'), pct = document.getElementById('pct');

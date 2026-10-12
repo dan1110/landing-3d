@@ -103,13 +103,25 @@
   @media (pointer: fine) { #cursor { display: block; } }
 
   @media (max-width: 720px) {
-    .topbar { padding: 18px 20px; }
+    /* phones: text stacked in the top ~45%, the 3D subject framed in the lower half by the portrait camera */
+    .topbar { padding: 18px 16px; }
     .topbar nav { display: none; } .topbar .menu { display: block; }
-    .rail { display: none; }
-    .label { right: 20px; bottom: 20px; }
-    section { padding: 100px 20px 120px; }
-    .ov-companion, .ov-load, .ov-contact { right: 20px; bottom: 60px; }
-    .ov-companion { width: 200px; }
+    .rail, .label { display: none; }
+    section { padding: 88px 16px 0; justify-content: flex-start; }
+    #hero { padding-bottom: 0; }
+    section.right { align-items: flex-start; text-align: left; }
+    section.right p, section.right .cap { text-align: left; }
+    section .kicker { margin-bottom: 14px; } section .eyebrow { margin-bottom: 10px; }
+    section h1, section h2, #work h2, #team h2, #intel h2 { font-size: clamp(34px, 9.5vw, 56px); max-width: 12ch; line-height: .98; }
+    section p { margin-top: 14px; font-size: 15px; line-height: 1.45; max-width: 36ch; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    section .cap { margin-top: 10px; font-size: 9px; line-height: 1.7; } section .hint { margin-top: 16px; }
+    .ov-companion, .ov-load, .ov-contact { left: 16px; right: 16px; bottom: 16px; width: auto; max-height: 34vh; overflow: auto; }
+    .ov-companion { padding: 12px 14px; display: grid; grid-template-columns: 1fr auto; column-gap: 12px; align-items: center; }
+    .ov-companion .t { grid-column: 1 / -1; } .ov-companion .s { grid-column: 1 / -1; margin-top: 4px; } .ov-companion .n { margin-top: 6px; font-size: 16px; }
+    .ov-companion button { margin-top: 0; grid-column: 2; grid-row: 3 / span 2; } .ov-companion .hint { margin-top: 4px; grid-column: 1; }
+    .ov-load { text-align: left; line-height: 1.7; }
+    .ov-contact { padding: 14px 16px; } .ov-contact .i.big { min-height: 44px; } .ov-contact .b { padding: 12px; }
+    .sb-bubble { top: 42vh !important; bottom: auto !important; }
   }
 </style>
 </head>
@@ -391,7 +403,7 @@ const modules = MOD.map((name, i) => {
   const m = new THREE.Mesh(geo, modMat.clone()); g.add(m); g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat));
   const lab = sprite(name, 2.2, 0.55, { color: '#efe9dd' }); lab.position.y = 1.25; g.add(lab);
   const tx = YX - 6.3 + i * 3.1, ty = QY + 5.6, tz = 6 + (i % 2 ? 0.6 : -0.6);
-  g.userData.t = V3(tx, ty, tz); g.position.set(tx, QY + 12, tz); scene.add(g); g.userData.mesh = m; return g;
+  g.userData.t = V3(tx, ty, tz); g.userData.desk = V3(tx, ty, tz); g.position.set(tx, QY + 12, tz); scene.add(g); g.userData.mesh = m; return g;
 });
 const modLinesGeo = new THREE.BufferGeometry(); modLinesGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(4 * 2 * 3), 3));
 const modLines = new THREE.LineSegments(modLinesGeo, new THREE.LineBasicMaterial({ color: C.sb, transparent: true, opacity: 0 })); scene.add(modLines);
@@ -409,7 +421,7 @@ const workCards = []; // { mesh, label, base, k }
     const mesh = photoCard({ url: p.img, w, h: H, imgRatio: p.ratio, radius: 0.04, dim: 0.8 }); const base = V3(GX + (1.5 - c) * PITCH_X, ROWS_Y[r], 8.44);
     mesh.position.copy(base); mesh.rotation.y = Math.PI; scene.add(mesh);
     const label = labelSprite(p.name, { sub: p.metric.join(' '), width: 1.6 }); label.position.set(base.x, base.y - H / 2 - 0.2, 8.44); label.rotation.y = Math.PI; label.material.opacity = 0; scene.add(label);
-    workCards.push({ mesh, label, base, k, data: p });
+    workCards.push({ mesh, label, base, desk: base.clone(), lab: { dy: -H / 2 - 0.2, dz: 0 }, k, data: p });
   });
   // hooded lamps over the top row (emissive only)
   for (let c = 0; c < 4; c++) { const x = GX + (1.5 - c) * PITCH_X; const hood = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.2, 12, 1, true), new THREE.MeshStandardMaterial({ color: 0x1c222c, side: THREE.DoubleSide, emissive: C.amber, emissiveIntensity: 0.3 })); hood.position.set(x, 9.25, 8.1); scene.add(hood);
@@ -475,19 +487,20 @@ const crewHead = new THREE.InstancedMesh(new THREE.SphereGeometry(0.22, 12, 10),
 scene.add(crewBody, crewHead);
 // crew photo on the pier: the two CEOs (captain and first mate) front and centre, bigger and amber-framed; the crew on a wooden stand behind
 const teamCards = [];
-{ const CX = PX - 1, LW = 1.3, LH = 1.625, LP = 1.95, CW = 1, CH = 1.25, CP = 1.4;
+const TCX = PX - 1, T_LH = 1.625, T_CH = 1.25;
+{ const CX = TCX, LW = 1.3, LH = T_LH, LP = 1.95, CW = 1, CH = T_CH, CP = 1.4;
   const stand = box(Math.max(4, TEAM_CREW.length * CP + 1.2), 1.95, 1.7, matWood, CX, QY + 0.975, -5.4); stand.receiveShadow = true;
   TEAM_LEADS.forEach((m, k) => {
     const x = CX + (k - (TEAM_LEADS.length - 1) / 2) * LP, z = -2.6, y = QY + LH / 2 + 0.45;
     const mesh = photoCard({ url: m.img, w: LW, h: LH, imgRatio: 0.8, dim: 0.95, borderColor: 0xf2b25c, border: 0.03 }); mesh.position.set(x, y, z); scene.add(mesh);
     const label = labelSprite(m.name, { sub: m.role, width: 1.75 }); label.position.set(x, y - LH / 2 - 0.26, z + 0.01); label.material.opacity = 0; scene.add(label);
-    teamCards.push({ mesh, label, base: V3(x, y, z), k, data: m });
+    teamCards.push({ mesh, label, base: V3(x, y, z), desk: V3(x, y, z), lab: { dy: -LH / 2 - 0.26, dz: 0.01 }, k, data: m });
   });
   TEAM_CREW.forEach((m, i) => {
     const k = i + TEAM_LEADS.length; const x = CX + (i - (TEAM_CREW.length - 1) / 2) * CP, z = -5.4, y = QY + 1.95 + CH / 2 + 0.38;
     const mesh = photoCard({ url: m.img, w: CW, h: CH, imgRatio: 0.8, dim: 0.85 }); mesh.position.set(x, y, z); scene.add(mesh);
     const label = labelSprite(m.name, { sub: m.role, width: 1.3 }); label.position.set(x, y - CH / 2 - 0.18, z + 0.01); label.material.opacity = 0; scene.add(label);
-    teamCards.push({ mesh, label, base: V3(x, y, z), k, data: m });
+    teamCards.push({ mesh, label, base: V3(x, y, z), desk: V3(x, y, z), lab: { dy: -CH / 2 - 0.18, dz: 0.01 }, k, data: m });
   }); }
 // moored ship behind the pier
 const shipShape = new THREE.Shape(); shipShape.moveTo(-16, -3.5); shipShape.lineTo(11, -3.5); shipShape.quadraticCurveTo(16, -2, 18, 0); shipShape.quadraticCurveTo(16, 2, 11, 3.5); shipShape.lineTo(-16, 3.5); shipShape.closePath();
@@ -549,6 +562,39 @@ const camKeys = [
 ];
 const camCurve = new THREE.CatmullRomCurve3(camKeys.map((k) => k[1]), false, 'centripetal', 0.2);
 const lookCurve = new THREE.CatmullRomCurve3(camKeys.map((k) => k[2]), false, 'centripetal', 0.2);
+// ---------- phones (portrait): own camera keys for WORK and TEAM, pulled-back + pitched-up framing elsewhere ----------
+// The desktop path above is untouched; on a portrait viewport we read these curves instead.
+const isPortrait = () => innerWidth <= 720 || innerWidth / innerHeight < 0.8;
+let portrait = false;
+const camKeysP = camKeys.map((k) => [k[0], k[1].clone(), k[2].clone()]);
+camKeysP[6] = [0.500, V3(56.5, 5.6, -8.5), V3(56.5, 6.4, 8.44)];           // work: straight on, 3×4 grid under the text
+camKeysP[10] = [0.8333, V3(TCX, 4.9, 10.5), V3(TCX, 4.4, -4.2)];           // team: straight on, leads front, crew 3×2 on the stand
+camKeysP[4] = [0.3333, V3(YX - 0.1, 9.5, -10), V3(YX - 0.1, 6.6, 6)];       // intel: straight at the modules, stacked 3 + 2 on phones
+camKeysP[8] = [0.6667, V3(BX - 2, 7.0, 4.5), V3(BX + 6, 3.5, BZ - 1)];      // load: breakwater head, posters and Byte together
+const camCurveP = new THREE.CatmullRomCurve3(camKeysP.map((k) => k[1]), false, 'centripetal', 0.2);
+const lookCurveP = new THREE.CatmullRomCurve3(camKeysP.map((k) => k[2]), false, 'centripetal', 0.2);
+const PF = [1.25, 1.3, 1.55, 1.3, 1.5, 1.2, 1.0, 1.2, 1.0, 1.3, 1.0, 1.15, 1.0, 1.0]; // camera distance × per key (portrait)
+const PT = [0.13, 0.16, 0.22, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.22, 0.12, 0.04, 0.04]; // pitch-up (rad): subject sinks into the lower half
+function portraitFrame(u) { // fills _p/_l for portrait
+  camCurveP.getPoint(u, _p); lookCurveP.getPoint(u, _l);
+  const fi = u * (camKeysP.length - 1), i0 = Math.min(camKeysP.length - 1, Math.floor(fi)), i1 = Math.min(camKeysP.length - 1, i0 + 1), f = fi - i0;
+  _p.sub(_l).multiplyScalar(lerp(PF[i0], PF[i1], f)).add(_l);
+  return lerp(PT[i0], PT[i1], f);
+}
+function layoutCards() { // same meshes, re-gridded for a 390 px wide frame
+  if (portrait) {
+    const GX = 56.5, PX_ = 1.75, ROWS = [8.65, 7.3, 5.95, 4.6];
+    workCards.forEach((c) => { const r = Math.floor(c.k / 3), col = c.k % 3; c.base.set(GX + (1 - col) * PX_, ROWS[r], 8.44); });
+    teamCards.forEach((c) => {
+      if (c.data.lead) { const i = TEAM_LEADS.indexOf(c.data); c.base.set(TCX + (i - (TEAM_LEADS.length - 1) / 2) * 1.9, QY + T_LH / 2 + 0.45, -2.6); }
+      else { const i = TEAM_CREW.indexOf(c.data), row = Math.floor(i / 3), col = i % 3; c.base.set(TCX + (col - 1) * 1.4, QY + 1.95 + T_CH / 2 + 0.38 + row * 1.5, -5.4 - row * 0.25); }
+    });
+    modules.forEach((g, i) => { const row = i < 3 ? 0 : 1; const col = i < 3 ? i - 1 : (i - 3) - 0.5; g.userData.t.set(YX - 0.1 + col * 2.6, QY + 5.6 + row * 1.7, 6 - row * 0.3); });
+  } else { workCards.forEach((c) => c.base.copy(c.desk)); teamCards.forEach((c) => c.base.copy(c.desk)); modules.forEach((g) => g.userData.t.copy(g.userData.desk)); }
+  [...workCards, ...teamCards].forEach((c) => c.label.position.set(c.base.x, c.base.y + c.lab.dy, c.base.z + c.lab.dz));
+}
+function applyView() { portrait = isPortrait(); camera.fov = portrait ? 54 : 40; camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); layoutCards(); }
+
 // map p -> curve parameter via the key times (piecewise linear over key index)
 function keyParam(p) { for (let i = 1; i < camKeys.length; i++) { if (p <= camKeys[i][0]) { const a = camKeys[i - 1][0], b = camKeys[i][0]; return (i - 1 + (p - a) / (b - a)) / (camKeys.length - 1); } } return 1; }
 
@@ -587,14 +633,16 @@ const SPOTS = [V3(2.5, 2.8, -24), V3(LX + 2.7, QY + 14.15, LZ + 0.5), V3(33.2, Q
 const MOODS = ['wave', 'talk', 'point', 'point', 'cheer', 'wave', 'point'];
 const POINTS = [null, null, V3(YX - 6.3, QY + 5.6, 6), V3(56.5, 7.0, 8.4), null, null, V3(OX - 4.6, QY + 1.1, OZ + 0.2)];
 let sayTimer = 0;
+const SPOTS_P = SPOTS.map((v) => v.clone()); SPOTS_P[2] = V3(YX + 4.3, QY + 4.85, 6.3); SPOTS_P[3] = V3(57.6, QY, 7.5); SPOTS_P[5] = V3(TCX + 2.1, QY, -1.0); SPOTS_P[6] = V3(OX - 5.6, QY + 0.2, OZ - 0.9); // phones: under the grid / beside the leads
+const POINTS_P = POINTS.map((v) => v && v.clone()); POINTS_P[3] = V3(56.5, 6.6, 8.4); POINTS_P[2] = V3(YX - 0.1, QY + 6.5, 6);
 function onChapter(c) {
   bot.hush(); clearTimeout(sayTimer);
-  const spot = SPOTS[c], camP = camKeys.find((k) => Math.abs(k[0] - c / 6) < 0.01)[1];
+  const spot = (portrait ? SPOTS_P : SPOTS)[c], camP = (portrait ? camKeysP : camKeys).find((k) => Math.abs(k[0] - c / 6) < 0.01)[1];
   const faceYaw = Math.atan2(camP.x - spot.x, camP.z - spot.z);
-  bot.group.scale.setScalar(c === 0 ? 1.1 : 0.92);
+  bot.group.scale.setScalar((c === 0 ? 1.1 : 0.92) * (portrait ? 0.8 : 1));
   if (c === 0) bot.place(spot, faceYaw);
   else { bot.place(spot.clone().add(V3(c % 2 ? 1.5 : -1.5, 0, 0)), faceYaw); bot.goTo(spot); }
-  sayTimer = setTimeout(() => { if (POINTS[c]) bot.pointAt(POINTS[c]); bot.say(BOT.lines[KEYS[c]], { mood: MOODS[c] }); }, 400);
+  sayTimer = setTimeout(() => { const pt = (portrait ? POINTS_P : POINTS)[c]; if (pt) bot.pointAt(pt); bot.say(BOT.lines[KEYS[c]], { mood: MOODS[c] }); }, 400);
 }
 bot.attachBubble(camera); createVoiceToggle();
 
@@ -667,8 +715,9 @@ function frame() {
   setChapter(Math.round(s));
 
   const u = keyParam(cur);
-  camCurve.getPoint(u, _p); lookCurve.getPoint(u, _l);
-  camera.position.copy(_p); camera.position.y += Math.sin(t * 0.45) * 0.05; camera.lookAt(_l);
+  let pitch = 0;
+  if (portrait) pitch = portraitFrame(u); else { camCurve.getPoint(u, _p); lookCurve.getPoint(u, _l); }
+  camera.position.copy(_p); camera.position.y += Math.sin(t * 0.45) * 0.05; camera.lookAt(_l); if (pitch) camera.rotateX(pitch);
 
   waterMat.uniforms.time.value = t;
   beamGroup.rotation.y = Math.sin(t * 0.26) * 0.85;   // sweeps across the bay (−z side), never over the quay/camera line
@@ -720,7 +769,7 @@ function frame() {
   composer.render();
 }
 
-addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); bloom.resolution.set(innerWidth, innerHeight); measure(); target = clamp(scrollY / docRangeV, 0, 1); });
+addEventListener('resize', () => { const was = portrait; applyView(); if (was !== portrait && chapter >= 0) onChapter(chapter); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); bloom.resolution.set(innerWidth, innerHeight); measure(); target = clamp(scrollY / docRangeV, 0, 1); });
 document.addEventListener('visibilitychange', () => renderer.setAnimationLoop(document.hidden ? null : frame));
 document.fonts?.ready?.then(measure);
 
@@ -731,7 +780,7 @@ const IMGS = [...TEAM, ...PROJECTS].map((x) => x.img); let imgDone = 0; IMGS.for
 renderer.compile(scene, camera);
 const tick = () => { const tp = Math.min(100, ((performance.now() - t0) / 1000) * 100), ip = (imgDone / IMGS.length) * 100; pct = Math.round(Math.min(tp, 40 + ip * 0.6)); if (tp >= 100 && ip >= 100) pct = 100; ldbar.style.width = pct + '%'; ldpct.textContent = pct + '%'; if (pct < 100 && performance.now() - t0 < 8000) requestAnimationFrame(tick); else document.getElementById('loader').classList.add('done'); };
 tick();
-measure(); target = clamp(scrollY / docRangeV, 0, 1); cur = target;
+applyView(); measure(); target = clamp(scrollY / docRangeV, 0, 1); cur = target;
 renderer.setAnimationLoop(frame);
 </script>
 </body>

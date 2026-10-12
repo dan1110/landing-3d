@@ -104,10 +104,18 @@
     .topbar { padding: 18px 20px; }
     .topbar nav { display: none; } .topbar .menu { display: block; }
     .rail { display: none; }
-    .label { right: 20px; bottom: 20px; }
-    section { padding: 100px 20px 120px; }
-    .ov-companion, .ov-load, .ov-contact { right: 20px; bottom: 60px; }
-    .ov-companion { width: 200px; }
+    .label { display: none; }
+    /* phones: text stacks in the top ~45 %, the 3D subject is framed in the lower half by the portrait camera */
+    section { padding: 104px 16px 0; justify-content: flex-start; }
+    section h1 { font-size: clamp(34px, 9.5vw, 56px); } section h2, #team h2 { font-size: clamp(30px, 8.5vw, 48px); }
+    section h1, section h2 { max-width: none; }
+    section p { margin-top: 14px; max-width: none; font-size: 15px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    section .kicker { margin-bottom: 12px; } section .stats { margin-top: 14px; } section .hint { margin-top: 20px; } section .cap { margin-top: 12px; }
+    section.right { align-items: flex-start; text-align: left; } section.right h2 { max-width: none; } section.right p, section.right .cap { text-align: left; }
+    .ov-companion, .ov-load, .ov-contact { left: 16px; right: 16px; bottom: 16px; width: auto; max-height: 38vh; overflow: auto; }
+    .ov-load { text-align: left; }
+    body[data-chapter="1"] .sb-bubble, body[data-chapter="6"] .sb-bubble { bottom: calc(38vh + 28px); }
+    body[data-chapter="4"] .sb-bubble { bottom: 200px; }
   }
 </style>
 </head>
@@ -419,8 +427,8 @@ const WORK = { cards: [], labels: [], group: new THREE.Group() };
     for (let c = 0; c < COLS; c++) {
       const k = r * COLS + c, p = PROJECTS[k], w = ws[c];
       const card = photoCard({ url: p.img, w, h: H, imgRatio: p.ratio, radius: 0.04, dim: 0.8 });
-      card.position.set(x + w / 2, y, 0); card.userData.base = card.position.clone(); card.userData.k = k; g.add(card); WORK.cards.push(card);
-      const lb = labelSprite(p.name, { sub: p.metric.join(' '), width: Math.max(w, 1.1), size: 34 }); lb.position.set(x + w / 2, y - H / 2 - 0.2, 0.01); lb.material.opacity = 0; g.add(lb); WORK.labels.push(lb);
+      card.position.set(x + w / 2, y, 0); card.userData.base = card.position.clone(); card.userData.desk = card.position.clone(); card.userData.w = w; card.userData.k = k; g.add(card); WORK.cards.push(card);
+      const lb = labelSprite(p.name, { sub: p.metric.join(' '), width: Math.max(w, 1.1), size: 34 }); lb.position.set(x + w / 2, y - H / 2 - 0.2, 0.01); lb.userData.desk = lb.position.clone(); lb.material.opacity = 0; g.add(lb); WORK.labels.push(lb);
       x += w + GAP;
     }
   }
@@ -479,24 +487,24 @@ const TEAM_N = 112;
 }
 scene.add(placed(lightPool(C.amber, 14), new THREE.Vector3(SX[5], 0.012, 0)));
 // the crew: 11 real faces on a two-tier rig in front of the floor
-const CREW = { cards: [], labels: [], group: new THREE.Group() };
+const CREW = { cards: [], labels: [], rig: [], group: new THREE.Group() };
 {
   // company photo on the assembly floor: the two CEOs front and centre (bigger, amber border), the crew on a riser behind them
   const g = CREW.group; g.position.set(SX[5] - 3.2, 0, 2.3); g.rotation.y = Math.PI; scene.add(g); // faces the belt: the team shot is taken from above the line
   const W = 0.94, H = 1.18, PITCH = 1.12, LW = W * 1.3, LH = H * 1.3, LPITCH = LW + 0.22;
   const addCard = (m, x, y, z, lead) => {
     const card = photoCard({ url: m.img, w: lead ? LW : W, h: lead ? LH : H, imgRatio: 0.8, dim: lead ? 0.95 : 0.85, borderColor: lead ? 0xf2b25c : 0x1c2330, border: lead ? 0.03 : 0.022 });
-    card.position.set(x, y, z); card.userData.base = card.position.clone(); card.userData.member = m; g.add(card); CREW.cards.push(card);
-    const lb = labelSprite(m.name, { sub: m.role, width: lead ? 1.7 : 1.3, size: lead ? 44 : 36 }); lb.position.set(x, y - (lead ? LH : H) / 2 - (lead ? 0.26 : 0.2), z + 0.01); lb.material.opacity = 0; g.add(lb); CREW.labels.push(lb);
+    card.position.set(x, y, z); card.userData.base = card.position.clone(); card.userData.desk = card.position.clone(); card.userData.lead = lead; g.add(card); CREW.cards.push(card); card.userData.member = m;
+    const lb = labelSprite(m.name, { sub: m.role, width: lead ? 1.7 : 1.3, size: lead ? 44 : 36 }); lb.position.set(x, y - (lead ? LH : H) / 2 - (lead ? 0.26 : 0.2), z + 0.01); lb.userData.desk = lb.position.clone(); lb.material.opacity = 0; g.add(lb); CREW.labels.push(lb);
   };
   // back row (riser): TEAM_CREW at normal size
   { const y = 3.95, total = TEAM_CREW.length * PITCH - (PITCH - W); let x = -total / 2 + W / 2;
-    const rail_ = box(total + 0.6, 0.06, 0.06, M.steel); rail_.position.set(0, y - H / 2 - 0.34, -0.4); g.add(rail_);
+    const rail_ = box(total + 0.6, 0.06, 0.06, M.steel); rail_.position.set(0, y - H / 2 - 0.34, -0.4); g.add(rail_); CREW.rig.push(rail_);
     TEAM_CREW.forEach((m) => { addCard(m, x, y, -0.3, false); x += PITCH; });
-    for (const px of [-total / 2 - 0.3, total / 2 + 0.3]) { const post = box(0.08, 4.7, 0.08, M.steel); post.position.set(px, 2.35, -0.5); g.add(post); } }
+    for (const px of [-total / 2 - 0.3, total / 2 + 0.3]) { const post = box(0.08, 4.7, 0.08, M.steel); post.position.set(px, 2.35, -0.5); g.add(post); CREW.rig.push(post); } }
   // front row: TEAM_LEADS, centred, larger
   { const y = LH / 2 + 1.5, total = TEAM_LEADS.length * LPITCH - (LPITCH - LW); let x = -total / 2 + LW / 2; // bottoms clear the belt line in the foreground
-    const rail_ = box(total + 0.5, 0.06, 0.06, M.steel); rail_.position.set(0, y - LH / 2 - 0.3, -0.1); g.add(rail_);
+    const rail_ = box(total + 0.5, 0.06, 0.06, M.steel); rail_.position.set(0, y - LH / 2 - 0.3, -0.1); g.add(rail_); CREW.rig.push(rail_);
     TEAM_LEADS.forEach((m) => { addCard(m, x, y, 0, true); x += LPITCH; }); }
 }
 
@@ -526,10 +534,24 @@ const shots = [
   [[-1.6, 4.4, -9.6], [-4.8, 2.1, 2.3]],    // 05 floor: crane over the belt, crew rig in the left 60 %, near-side rows behind it
   [[6.5, 2.2, 6.0], [-1.0, 1.3, 1.2]],      // 06 dispatch: wider still life; crate centre-right, desk under the form, Byte between heading and crate
 ];
-shots.forEach(([c, l], i) => {
-  camPts.push(new THREE.Vector3(SX[i] + c[0], c[1], c[2])); lookPts.push(new THREE.Vector3(SX[i] + l[0], l[1], l[2]));
-  if (i < NCH - 1) { const n = shots[i + 1]; camPts.push(new THREE.Vector3(SX[i] + STEP / 2 + (c[0] + n[0][0]) / 2, (c[1] + n[0][1]) / 2 + 0.6, (c[2] + n[0][2]) / 2 + 1.2)); lookPts.push(new THREE.Vector3(SX[i] + STEP / 2 + (l[0] + n[1][0]) / 2, (l[1] + n[1][1]) / 2, (l[2] + n[1][2]) / 2)); }
-});
+// phones (portrait): same stations, camera pulled back and aimed above the subject so it sits in the lower half under the stacked text
+const shotsM = [
+  [[4.0, 3.0, 11.0], [1.6, 3.4, 0.5]],      // 00 intake: cube left, Byte right, both low
+  [[1.6, 2.8, 10.0], [1.6, 2.4, 2.2]],      // 01 desk: Byte centred in the rings
+  [[-0.3, 3.4, 12.5], [0.3, 3.0, -0.3]],    // 02 design cell: cluster centred, Byte lower left
+  [[-1.2, 3.4, 14.0], [-1.2, 4.2, -1.9]],   // 03 finished goods: 3×4 shelf centred under the text, belt out of the way
+  [[1.5, 3.2, 11.5], [0.0, 3.0, 0.0]],      // 04 chamber: tunnel + scoreboard low
+  [[-3.2, 4.2, -13.0], [-3.2, 5.4, 2.3]],   // 05 floor: rig frontal from above the belt, Byte at its feet
+  [[1.0, 2.8, 10.5], [0.3, 1.6, 1.0]],      // 06 dispatch: crate + Byte peek above the form
+];
+function buildCam(sh) {
+  camPts.length = 0; lookPts.length = 0;
+  sh.forEach(([c, l], i) => {
+    camPts.push(new THREE.Vector3(SX[i] + c[0], c[1], c[2])); lookPts.push(new THREE.Vector3(SX[i] + l[0], l[1], l[2]));
+    if (i < NCH - 1) { const n = sh[i + 1]; camPts.push(new THREE.Vector3(SX[i] + STEP / 2 + (c[0] + n[0][0]) / 2, (c[1] + n[0][1]) / 2 + 0.6, (c[2] + n[0][2]) / 2 + 1.2)); lookPts.push(new THREE.Vector3(SX[i] + STEP / 2 + (l[0] + n[1][0]) / 2, (l[1] + n[1][1]) / 2, (l[2] + n[1][2]) / 2)); }
+  });
+}
+buildCam(shots);
 const camCurve = new THREE.CatmullRomCurve3(camPts, false, 'centripetal', 0.6), lookCurve = new THREE.CatmullRomCurve3(lookPts, false, 'centripetal', 0.6);
 
 // ---------- post ----------
@@ -550,8 +572,14 @@ composer.addPass(grain);
 
 // ---------- scroll / chapters ----------
 let target = 0, cur = 0, chapter = -1, docH = 1;
-const measure = () => { docH = Math.max(1, document.documentElement.scrollHeight - innerHeight); target = clamp(scrollY / docH, 0, 1); };
-addEventListener('scroll', () => { target = clamp(scrollY / docH, 0, 1); }, { passive: true });
+let tops = [];
+const progress = () => {
+  if (!(typeof PORTRAIT !== 'undefined' && PORTRAIT) || tops.length < 2) return clamp(scrollY / docH, 0, 1);
+  const y = scrollY; let i = 0; while (i < tops.length - 1 && y >= tops[i + 1]) i++;
+  const a = tops[i], b = i < tops.length - 1 ? tops[i + 1] : a + innerHeight; return clamp((i + (y - a) / Math.max(1, b - a)) / (NCH - 1), 0, 1);
+};
+const measure = () => { docH = Math.max(1, document.documentElement.scrollHeight - innerHeight); tops = [...document.querySelectorAll('main section')].map((el) => el.offsetTop); target = progress(); };
+addEventListener('scroll', () => { target = progress(); }, { passive: true });
 const railEls = [...document.querySelectorAll('.rail span')], navEls = [...document.querySelectorAll('.topbar nav a')];
 function setChapter(c) {
   if (c === chapter) return; const first = chapter < 0; chapter = c; document.body.dataset.chapter = c;
@@ -600,12 +628,20 @@ const BYTE_SPOTS = [
   { pos: V3(SX[5] - 6.0, 0, -1.5), mood: 'wave', line: 'team' },       // foreground, between the crew rig and the heading
   { pos: V3(SX[6] - 1.3, 0, 2.0), mood: 'point', at: V3(SX[6] + 2.4, 1.0, 2.0), line: 'contact' }, // in front of the belt, left of the crate, clear of the form // behind the belt like a dispatch counter; the crate never crosses it
 ];
+const BYTE_SPOTS_M = {
+  2: V3(SX[2] - 1.7, 0, 2.4),   // intel: front left, clear of the arms
+  3: V3(SX[3] + 1.0, 0, 1.6),   // work: below the shelf's right end
+  4: V3(SX[4] - 1.6, 0, 2.6),   // load: front left of the chamber
+  5: V3(SX[5] - 3.2, 0, -0.6),  // team: centred at the foot of the rig
+  6: V3(SX[6] - 1.0, 0, 2.0),   // contact: left of the crate, torso above the form
+};
 let byteWant = null, byteMoodAt = 0, sayTimer = 0;
 function applyByteMood() { if (!byteWant) return; if (byteWant.mood === 'point' && byteWant.at) bot.pointAt(byteWant.at); else bot.setMood(byteWant.mood); byteWant = null; }
 function byteGo(c, instant = false) {
   const sp = BYTE_SPOTS[c]; if (!sp) return;
   bot.hush(); clearTimeout(sayTimer);
-  if (instant) bot.place(sp.pos); else bot.goTo(sp.pos);
+  const pos = (PORTRAIT && BYTE_SPOTS_M[c]) || sp.pos;
+  if (instant) bot.place(pos); else bot.goTo(pos);
   byteWant = sp; byteMoodAt = performance.now() + 300;
   sayTimer = setTimeout(() => { if (chapter === c) bot.say(BOT.lines[sp.line]); }, instant ? 1600 : 400 + (bot.isMoving() ? 1800 : 0));
 }
@@ -727,7 +763,36 @@ function frame() {
   composer.render();
 }
 
-addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); bloom.resolution.set(innerWidth, innerHeight); measure(); });
+// ---------- portrait (phone) layout ----------
+let PORTRAIT = null;
+const isPortrait = () => innerWidth <= 720 || innerWidth / innerHeight < 0.8;
+function layoutWork(portrait) {
+  const H = 0.95, GAP = 0.2;
+  if (!portrait) { WORK.cards.forEach((c, k) => { c.userData.base.copy(c.userData.desk); c.scale.setScalar(1); WORK.labels[k].position.copy(WORK.labels[k].userData.desk); WORK.labels[k].scale.setScalar(1); }); return; }
+  const COLS = 3, S = 0.75, PY = 1.12; // 3 columns × 4 rows, cards at 75 %, raised so the belt never covers the bottom row
+  for (let r = 0; r < 4; r++) {
+    const cards = WORK.cards.slice(r * COLS, r * COLS + COLS), ws = cards.map((c) => c.userData.w * S), total = ws.reduce((a, b) => a + b + GAP, -GAP); let x = -total / 2; const y = 4.75 - r * PY;
+    cards.forEach((c, i) => { const w = ws[i]; c.userData.base.set(x + w / 2, y, 0.02); c.scale.setScalar(S); const lb = WORK.labels[c.userData.k]; lb.position.set(x + w / 2, y - H * S / 2 - 0.17, 0.03); lb.scale.setScalar(S); x += w + GAP; });
+  }
+}
+function layoutCrew(portrait) {
+  CREW.rig.forEach((m) => { m.visible = !portrait; });
+  if (!portrait) { CREW.cards.forEach((c, k) => { c.userData.base.copy(c.userData.desk); CREW.labels[k].position.copy(CREW.labels[k].userData.desk); }); return; }
+  const W = 0.94, H = 1.18, PITCH = 1.12, LW = W * 1.3, LH = H * 1.3, LPITCH = LW + 0.22;
+  const leads = CREW.cards.filter((c) => c.userData.lead), crew = CREW.cards.filter((c) => !c.userData.lead);
+  leads.forEach((c, i) => { const x = (i - (leads.length - 1) / 2) * LPITCH, y = 5.3; c.userData.base.set(x, y, 0); CREW.labels[CREW.cards.indexOf(c)].position.set(x, y - LH / 2 - 0.26, 0.01); });
+  crew.forEach((c, i) => { const col = i % 3, row = Math.floor(i / 3), x = (col - 1) * PITCH, y = 3.4 - row * 1.4; c.userData.base.set(x, y, -0.2); CREW.labels[CREW.cards.indexOf(c)].position.set(x, y - H / 2 - 0.2, -0.19); });
+}
+function applyLayout() {
+  const p = isPortrait(); if (p === PORTRAIT) return; PORTRAIT = p;
+  camera.fov = p ? 54 : 40; camera.updateProjectionMatrix();
+  buildCam(p ? shotsM : shots); camCurve.needsUpdate = lookCurve.needsUpdate = true;
+  bot.group.scale.setScalar(p ? 0.9 * 0.8 : 0.9);
+  layoutWork(p); layoutCrew(p);
+  if (chapter >= 0) byteGo(chapter, true);
+}
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); bloom.resolution.set(innerWidth, innerHeight); measure(); applyLayout(); });
+applyLayout();
 document.addEventListener('visibilitychange', () => renderer.setAnimationLoop(document.hidden ? null : frame));
 document.fonts?.ready.then(measure);
 

@@ -117,8 +117,28 @@
     section { padding: 100px 20px 120px; }
     .ov-companion, .ov-load { right: 20px; bottom: 60px; }
     .ov-contact { left: 20px; bottom: 60px; }
-    .ov-companion { width: 200px; }
     .sb-voice { top: 58px; }
+    /* phones: text in the top ~45%, the 3D subject in the lower half (camera handles the subject) */
+    .label { display: none; }
+    section, section.right { justify-content: flex-start; align-items: flex-start; text-align: left; padding: 96px 16px 0; min-height: 100vh; }
+    section.right p { text-align: left; }
+    section .kicker { margin-bottom: 14px; }
+    section h1, section h2, #team h2 { font-size: clamp(34px, 9.5vw, 56px); max-width: 100%; line-height: 1; }
+    section p { margin-top: 14px; font-size: 15px; line-height: 1.45; max-width: 100%; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    section .stats { margin-top: 14px; font-size: 9px; }
+    section .hint { margin-top: 18px; }
+    section .cap { display: none; }
+    .ov-companion, .ov-load, .ov-contact { left: 16px; right: 16px; bottom: 16px; width: auto; max-height: 40vh; overflow: auto; }
+    .ov-companion { display: grid; grid-template-columns: auto 1fr; column-gap: 14px; align-items: center; padding: 12px 14px; }
+    .ov-companion button { grid-row: 1 / span 3; margin: 0; width: 40px; height: 40px; }
+    .ov-companion .n { margin-top: 4px; font-size: 15px; }
+    .ov-companion .hint { display: none; }
+    .ov-load { text-align: left; font-size: 10px; }
+    .ov-load .cap { text-align: left; }
+    .ov-contact { padding: 14px 16px; }
+    .ov-contact textarea { min-height: 44px; }
+    .ov-contact .b { padding: 12px; }
+    body[data-chapter="6"] .sb-bubble { top: 31vh; bottom: auto; }
   }
 </style>
 </head>
@@ -312,17 +332,33 @@ const SHOT = [
   { d: 13, h: 3.2, hl: 1.6, off: 0, loff: -1.6 },        // team: heading right (shrunk), two rows of faces left, Byte at the left corner
   { d: 6, h: 1.9, hl: 0.95, off: 1.0, loff: 3.0 },       // contact: heading top-left, form bottom-left, desk + Byte right
 ];
+// phones (portrait): subject centred and pushed into the lower half of the frame, camera further back, wider fov (52)
+const SHOT_M = [
+  { d: 14, h: 2.2, hl: 2.8, off: 0, loff: 0.3 },
+  { d: 8.5, h: 2.0, hl: 2.4, off: 0, loff: 0 },
+  { d: 20, h: 4.8, hl: 4.2, off: 0, loff: 0 },
+  { d: 14, h: 4.6, hl: 4.2, off: 0, loff: 0 },
+  { d: 16, h: 3.4, hl: 3.6, off: 0, loff: 0 },
+  { d: 13, h: 3.6, hl: 3.4, off: 0, loff: 0 },
+  { d: 9.5, h: 1.6, hl: 0.8, off: 0, loff: 0.2 },
+];
 const E = ANG.map((a) => new THREE.Vector3(R * Math.sin(a), 0, R * Math.cos(a)));
-const camPts = [], lookPts = [];
-ANG.forEach((a, i) => {
-  const e = E[i], s = SHOT[i];
-  const toC = e.clone().multiplyScalar(-1).normalize();
-  const tan = new THREE.Vector3(Math.cos(a), 0, -Math.sin(a));
-  camPts.push(e.clone().addScaledVector(toC, s.d).addScaledVector(tan, s.off).setY(s.h));
-  lookPts.push(e.clone().addScaledVector(tan, s.loff).setY(s.hl));
-});
-const camCurve = new THREE.CatmullRomCurve3(camPts, false, 'centripetal', 0.5);
-const lookCurve = new THREE.CatmullRomCurve3(lookPts, false, 'centripetal', 0.5);
+function makeCurves(S) {
+  const camPts = [], lookPts = [];
+  ANG.forEach((a, i) => {
+    const e = E[i], s = S[i];
+    const toC = e.clone().multiplyScalar(-1).normalize();
+    const tan = new THREE.Vector3(Math.cos(a), 0, -Math.sin(a));
+    camPts.push(e.clone().addScaledVector(toC, s.d).addScaledVector(tan, s.off).setY(s.h));
+    lookPts.push(e.clone().addScaledVector(tan, s.loff).setY(s.hl));
+  });
+  return { cam: new THREE.CatmullRomCurve3(camPts, false, 'centripetal', 0.5), look: new THREE.CatmullRomCurve3(lookPts, false, 'centripetal', 0.5) };
+}
+const CURVES = { d: makeCurves(SHOT), m: makeCurves(SHOT_M) };
+const isPortrait = () => innerWidth <= 720 || innerWidth / innerHeight < 0.8;
+let MOB = isPortrait();
+let camCurve = CURVES[MOB ? 'm' : 'd'].cam, lookCurve = CURVES[MOB ? 'm' : 'd'].look;
+camera.fov = MOB ? 52 : 38; camera.updateProjectionMatrix();
 
 // exhibit groups: each faces the stage centre; local +z points toward the camera side, local +x is screen-right
 const EX = ANG.map((a, i) => {
@@ -343,7 +379,7 @@ const toWorld = (i, x, y, z) => EX[i].g.localToWorld(new THREE.Vector3(x, y, z))
 const skey = keyLight(C.amber, 0, 0.42, 0.55); skey.shadow.mapSize.set(2048, 2048); skey.shadow.camera.near = 3; skey.shadow.camera.far = 18; skey.shadow.bias = -0.001; skey.shadow.normalBias = 0.08; skey.shadow.radius = 6; skey.shadow.camera.updateProjectionMatrix(); scene.add(skey, skey.target);
 
 // ---------- Byte, picking, detail ----------
-const bot = createBot({ scale: 0.9 }); scene.add(bot.group);
+const bot = createBot({ scale: 0.9 }); scene.add(bot.group); bot.group.scale.setScalar(MOB ? 0.72 : 0.9);
 bot.attachBubble(camera); createVoiceToggle();
 const detail = createDetail();
 const picker = createPicker({
@@ -364,6 +400,17 @@ const SPOT = [
   { at: [-4.1, 0, 1.9], mood: 'wave' },   // front-left corner of the stage, beside the crew, under the key
   { at: [-1.5, 0, 0.5], mood: 'point', to: [0.35, 0.85, 0.05] },
 ];
+// phone spots: inside the narrow frame, beside the subject, never under the text column
+const SPOT_M = [
+  { at: [1.6, 0, 1.6], mood: 'wave' },
+  { at: [0, 0, 0.2], mood: 'talk' },
+  { at: [-2.4, 0, 1.8], mood: 'point', to: [0.86, 2.6, -0.6] },
+  { at: [1.7, 0, 2.3], mood: 'point', to: [-1.2, 2.6, 0] },
+  { at: [0.6, 0, 2.0], mood: 'cheer' },
+  { at: [-1.9, 0, 1.6], mood: 'wave' },
+  { at: [-1.3, 0, 0.9], mood: 'point', to: [0.35, 0.85, 0.05] },
+];
+const SPOTS = () => (MOB ? SPOT_M : SPOT);
 const LINE_KEYS = ['hero', 'voice', 'intel', 'work', 'load', 'team', 'contact'];
 
 // ---------- 00 HERO: slab + SB mark + dust in the beam ----------
@@ -488,7 +535,18 @@ const LINE_KEYS = ['hero', 'voice', 'intel', 'work', 'load', 'team', 'contact'];
     ex.rise.add(card); picker.add(card, { kind: 'person', data: m }); hoverables.push(card); ex.cards.push(card);
     const pl = new THREE.Mesh(new THREE.BoxGeometry(R0.w + 0.08, riser, 0.34), stdDark); pl.position.set(x, riser / 2, z - 0.02); pl.castShadow = pl.receiveShadow = true; ex.rise.add(pl);
     const l = labelSprite(m.name, { sub: m.role, width: R0.lead ? 1.45 : 1.1, size: R0.lead ? 44 : 38 }); l.position.set(x, riser - (R0.lead ? 0.2 : 0.16), z + 0.18); l.material.opacity = 0; ex.rise.add(l); card.userData.label = l;
+    Object.assign(card.userData, { row: R0, i, plinth: pl, riser0: riser });
   }));
+  // phones: leads front and centre, crew in two rows of three behind (same meshes, repositioned)
+  ex.layout = (mobile) => ex.cards.forEach((card) => {
+    const { row: R0, i, plinth, riser0, label } = card.userData; let x, z, riser;
+    if (!mobile || R0.lead) { x = (i - (R0.people.length - 1) / 2) * R0.pitch; z = R0.z; riser = R0.riser; }
+    else { const r = Math.floor(i / 3), c = i % 3; x = (c - 1) * 1.08 + (r ? 0.3 : -0.3); z = -0.6 - r * 1.4; riser = 2.1 + r * 1.55; }
+    card.userData.home.set(x, riser + R0.h / 2, z);
+    plinth.scale.y = riser / riser0; plinth.position.set(x, riser / 2, z - 0.02);
+    label.position.set(x, riser - (R0.lead ? 0.2 : 0.16), z + 0.18);
+  });
+  ex.layout(MOB);
   const ROWS = 9, COLS = 12, N = ROWS * COLS; // 108 bytes behind the crew
   const mat = new THREE.MeshStandardMaterial({ color: 0x0e1218, roughness: 0.8, metalness: 0 });
   const bodies = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.22, 0.75, 4, 10), mat, N);
@@ -543,7 +601,14 @@ composer.addPass(grain);
 // ---------- scroll / chapters ----------
 let target = 0, cur = 0, chapter = -1;
 const docRange = () => Math.max(1, document.documentElement.scrollHeight - innerHeight);
-addEventListener('scroll', () => { target = clamp(scrollY / docRange(), 0, 1); }, { passive: true });
+const SECTIONS = [...document.querySelectorAll('main section')];
+function progress() {
+  if (!MOB) return clamp(scrollY / docRange(), 0, 1);
+  const y = scrollY; let i = 0; while (i < SECTIONS.length - 1 && y >= SECTIONS[i + 1].offsetTop) i++;
+  const a = SECTIONS[i].offsetTop, b = i < SECTIONS.length - 1 ? SECTIONS[i + 1].offsetTop : a + innerHeight;
+  return clamp((i + clamp((y - a) / Math.max(1, b - a), 0, 1)) / (NCH - 1), 0, 1);
+}
+addEventListener('scroll', () => { target = progress(); }, { passive: true });
 const railEls = [...document.querySelectorAll('.rail span')], navEls = [...document.querySelectorAll('.topbar nav a')];
 let sayTimer = 0, started = false;
 function setChapter(c) {
@@ -552,7 +617,7 @@ function setChapter(c) {
   navEls.forEach((el) => el.classList.toggle('active', +el.dataset.ch === c));
   picker.enabled = c >= 2 && c <= 5;
   // Byte walks to the next exhibit, then talks
-  const sp = SPOT[c]; const dest = toWorld(c, ...sp.at);
+  const sp = SPOTS()[c]; const dest = toWorld(c, ...sp.at);
   bot.hush(); clearTimeout(sayTimer);
   if (!started) { started = true; bot.place(dest, Math.atan2(camera.position.x - dest.x, camera.position.z - dest.z)); }
   else bot.goTo(dest);
@@ -690,7 +755,14 @@ function frame() {
 }
 
 // resize
-addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); bloom.resolution.set(innerWidth, innerHeight); target = clamp(scrollY / docRange(), 0, 1); });
+function applyMode() {
+  const m = isPortrait(); if (m === MOB) return; MOB = m;
+  camCurve = CURVES[MOB ? 'm' : 'd'].cam; lookCurve = CURVES[MOB ? 'm' : 'd'].look;
+  camera.fov = MOB ? 52 : 38; camera.updateProjectionMatrix();
+  bot.group.scale.setScalar(MOB ? 0.72 : 0.9); EX[5].layout(MOB);
+  if (chapter >= 0) { const sp = SPOTS()[chapter]; bot.place(toWorld(chapter, ...sp.at)); }
+}
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); applyMode(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); bloom.resolution.set(innerWidth, innerHeight); target = progress(); });
 document.addEventListener('visibilitychange', () => renderer.setAnimationLoop(document.hidden ? null : frame));
 
 // loader: ≤ 1.2 s of warm-up plus the 23 photos, then start
@@ -705,7 +777,7 @@ const tick = () => {
   if (pct < 100 && performance.now() - t0 < 8000) requestAnimationFrame(tick); else document.getElementById('loader').classList.add('done');
 };
 tick();
-target = clamp(scrollY / docRange(), 0, 1); cur = target;
+target = progress(); cur = target;
 renderer.setAnimationLoop(frame);
 window.__sb = { skey, renderer, scene, camera, EX }; // debug handle for headless QA
 </script>

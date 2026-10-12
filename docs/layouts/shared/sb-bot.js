@@ -8,6 +8,7 @@
 //   bot.say(BOT.lines.voice);                        // speech bubble + Web Speech (if the visitor enabled voice) + talk animation
 //   bot.setMood('wave' | 'talk' | 'point' | 'cheer' | 'idle'); bot.pointAt(vec3); bot.lookAt(vec3 | null)
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const COL = {
   skin: 0xa9b1e6, skinDark: 0x8089c4, hair: 0x171c2b, hairLight: 0x27304d, hoodie: 0xece6da, hoodieDark: 0x14171e,
@@ -30,7 +31,12 @@ export function injectBotStyles() {
   .sb-voice { position: fixed; right: 32px; top: 74px; z-index: 14; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px 0 10px; border: 1px solid rgba(239,233,221,.16); border-radius: 15px; background: rgba(7,9,13,.6); color: var(--mute, #8b93a1); font: 500 9px/1 var(--mono, ui-monospace, monospace); letter-spacing: .22em; cursor: pointer; pointer-events: auto; }
   .sb-voice i { width: 8px; height: 8px; border-radius: 50%; background: #3a4352; } .sb-voice.on { color: var(--bone, #efe9dd); border-color: var(--sb, #1f8fd6); } .sb-voice.on i { background: var(--sb, #1f8fd6); box-shadow: 0 0 10px var(--sb, #1f8fd6); }
   .sb-voice.unsupported { opacity: .4; pointer-events: none; }
-  @media (max-width: 720px) { .sb-voice { right: 16px; top: 64px; } }`;
+  @media (max-width: 720px) {
+    .sb-voice { right: 16px; top: 64px; height: 26px; padding: 0 10px 0 8px; }
+    /* phones: the bubble is a fixed strip above the chapter overlays instead of following the head */
+    .sb-bubble { left: 16px !important; right: 16px; bottom: 112px; top: auto; max-width: none; font-size: 14px; padding: 10px 12px 11px; border-radius: 10px; transform: translateY(8px); }
+    .sb-bubble.on { transform: none; }
+  }`;
   document.head.appendChild(s);
 }
 
@@ -105,14 +111,16 @@ export function createVoiceToggle(parent = document.body) {
 }
 
 // ---------- the chibi ----------
-export function createBot({ scale = 1, name = 'Byte', light = true } = {}) {
+// model: path of the Blender-built GLB (tools/blender/byte.py). The procedural chibi shows immediately and is swapped
+// for the GLB once it loads; pass model:false to keep the procedural one.
+export function createBot({ scale = 1, name = 'Byte', light = true, model = 'assets/byte.glb' } = {}) {
   injectBotStyles();
   const group = new THREE.Group(); group.name = 'byte'; group.scale.setScalar(scale);
   const body = new THREE.Group(); group.add(body); // yaw for walking, independent of head
   const cast = (m) => { m.castShadow = true; m.receiveShadow = false; return m; };
 
   // torso (hoodie) — capsule for a soft chibi body
-  const torso = cast(new THREE.Mesh(new THREE.CapsuleGeometry(0.27, 0.2, 6, 18), std(COL.hoodie, { roughness: 0.8 }))); torso.position.y = 0.66; body.add(torso);
+  let torso = cast(new THREE.Mesh(new THREE.CapsuleGeometry(0.27, 0.2, 6, 18), std(COL.hoodie, { roughness: 0.8 }))); torso.position.y = 0.66; body.add(torso);
   const band = cast(new THREE.Mesh(new THREE.CylinderGeometry(0.272, 0.26, 0.14, 24), std(COL.hoodieDark, { roughness: 0.7 }))); band.position.y = 0.5; body.add(band);
   const trimM = new THREE.MeshBasicMaterial({ color: COL.trim, toneMapped: false });
   const trim = new THREE.Mesh(new THREE.TorusGeometry(0.272, 0.012, 6, 36), trimM); trim.rotation.x = Math.PI / 2; trim.position.y = 0.575; body.add(trim);
@@ -133,7 +141,7 @@ export function createBot({ scale = 1, name = 'Byte', light = true } = {}) {
     const hand = cast(new THREE.Mesh(new THREE.SphereGeometry(0.085, 14, 10), std(COL.skin))); hand.position.y = -0.33; piv.add(hand);
     piv.rotation.z = 0.18 * side; piv.userData.rest = { x: 0, z: 0.18 * side }; return piv;
   };
-  const armR = mkArm(1), armL = mkArm(-1);
+  let armR = mkArm(1), armL = mkArm(-1);
 
   // legs + sneakers
   const mkLeg = (side) => {
@@ -144,11 +152,11 @@ export function createBot({ scale = 1, name = 'Byte', light = true } = {}) {
     const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.025, 0.12), trimM); stripe.position.set(0, -0.345, 0.04); piv.add(stripe);
     return piv;
   };
-  const legR = mkLeg(1), legL = mkLeg(-1);
+  let legR = mkLeg(1), legL = mkLeg(-1);
 
   // head
-  const neck = new THREE.Group(); neck.position.y = 1.0; body.add(neck);
-  const head = new THREE.Group(); neck.add(head);
+  let neck = new THREE.Group(); neck.position.y = 1.0; body.add(neck);
+  let head = new THREE.Group(); neck.add(head);
   const skull = cast(new THREE.Mesh(new THREE.SphereGeometry(0.42, 32, 24), std(COL.skin, { roughness: 0.55 }))); skull.position.y = 0.4; skull.scale.set(1, 0.97, 0.95); head.add(skull);
   const hairM = std(COL.hair, { roughness: 0.45, metalness: 0.05 });
   // hair: full cap to the equator at the back/sides, a crescent of bangs across the forehead, a few tufts on its edge
@@ -159,25 +167,26 @@ export function createBot({ scale = 1, name = 'Byte', light = true } = {}) {
   const sheen = new THREE.Mesh(new THREE.SphereGeometry(0.455, 24, 12, Math.PI * 1.1, Math.PI * 0.35, Math.PI * 0.12, Math.PI * 0.14), new THREE.MeshBasicMaterial({ color: COL.hairLight, transparent: true, opacity: 0.5 })); sheen.position.y = 0.4; head.add(sheen);
   // eyes
   const eyeM = std(COL.eye, { roughness: 0.25 }); const whiteM = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const eyes = [1, -1].map((s) => {
+  let eyes = [1, -1].map((s) => {
     const e = new THREE.Group(); e.position.set(0.15 * s, 0.42, 0.37); head.add(e);
     const ball = new THREE.Mesh(new THREE.SphereGeometry(0.058, 16, 12), eyeM); ball.scale.set(1, 1.55, 0.5); e.add(ball);
     const hl = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), whiteM); hl.position.set(0.02 * s, 0.035, 0.03); e.add(hl);
     const hl2 = new THREE.Mesh(new THREE.SphereGeometry(0.01, 8, 6), whiteM); hl2.position.set(-0.015 * s, -0.025, 0.03); e.add(hl2);
     return e;
   });
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.011, 6, 14, Math.PI), std(COL.skinDark)); mouth.rotation.z = Math.PI; mouth.scale.set(1, 0.5, 0.5); mouth.position.set(0, 0.29, 0.405); head.add(mouth); // a small smile; talk pulses scale.y
+  let mouth = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.011, 6, 14, Math.PI), std(COL.skinDark)); mouth.rotation.z = Math.PI; mouth.scale.set(1, 0.5, 0.5); mouth.position.set(0, 0.29, 0.405); head.add(mouth); // a small smile; talk pulses scale.y
   [1, -1].forEach((s) => { const c = new THREE.Mesh(new THREE.CircleGeometry(0.045, 12), new THREE.MeshBasicMaterial({ color: COL.cheek, transparent: true, opacity: 0.35 })); c.position.set(0.25 * s, 0.33, 0.33); c.rotation.y = 0.55 * s; head.add(c); });
   // headphones
   const cupM = std(COL.cup, { roughness: 0.4, metalness: 0.2 });
   const bandG = new THREE.Mesh(new THREE.TorusGeometry(0.47, 0.028, 8, 36, Math.PI), cupM); bandG.position.y = 0.42; head.add(bandG);
-  const padM = new THREE.MeshStandardMaterial({ color: COL.pad, emissive: COL.pad, emissiveIntensity: 0.9, roughness: 0.4 });
-  const pads = [1, -1].map((s) => {
+  let padM = new THREE.MeshStandardMaterial({ color: COL.pad, emissive: COL.pad, emissiveIntensity: 0.9, roughness: 0.4 });
+  let pads = [1, -1].map((s) => {
     const cup = cast(new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.1, 24), cupM)); cup.rotation.z = Math.PI / 2; cup.position.set(0.44 * s, 0.4, 0); head.add(cup);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.095, 0.02, 8, 28), padM); ring.rotation.y = Math.PI / 2; ring.position.set(0.5 * s, 0.4, 0); head.add(ring);
     return ring;
   });
   // small warm rim so Byte reads in dark scenes (one light, created once, never toggled)
+  const procKids = [...body.children]; // what the GLB replaces (lights/props options attach to body later are kept)
   let rim = null;
   if (light) { rim = new THREE.PointLight(COL.pad, 5, 3.2, 2); rim.position.set(0.7, 1.9, -0.6); group.add(rim); }
 
@@ -185,7 +194,24 @@ export function createBot({ scale = 1, name = 'Byte', light = true } = {}) {
   const S = { t: 0, mood: 'idle', moodT: 0, blinkAt: 1.6, blink: 0, look: null, point: null, move: null, baseY: 0, talk: 0, talkUntil: 0, prevMood: 'idle' };
   const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
   const api = {
-    group, head, body, name, state: S, parts: { torso, head, armR, armL, legR, legL, pads, rim, eyes },
+    group, name, state: S, rigged: false,
+    body, get head() { return head; },
+    get parts() { return { torso, head, armR, armL, legR, legL, pads, rim, eyes, mouth, padM }; },
+    // Swap the procedural chibi for the Blender GLB (same node names). Keeps the current yaw/pose state.
+    loadModel(url) {
+      return new Promise((res, rej) => new GLTFLoader().load(url, (g) => {
+        const find = (n) => g.scene.getObjectByName(n) || g.scene.getObjectByName(n.replace(/[\[\]\.:\/]/g, '')); // GLTFLoader strips dots from node names
+        const need = ['Body', 'Torso', 'UpperArm.R', 'UpperArm.L', 'UpperLeg.R', 'UpperLeg.L', 'Neck', 'Head', 'Eye.R', 'Eye.L', 'Mouth', 'Pad.R', 'Pad.L'];
+        const miss = need.filter((n) => !find(n)); if (miss.length) return rej(new Error('byte.glb is missing nodes: ' + miss.join(', ')));
+        g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; if (o.material && o.material.emissiveIntensity > 1.5) o.material.toneMapped = true; } });
+        procKids.forEach((c) => body.remove(c)); body.add(g.scene);
+        torso = find('Torso'); armR = find('UpperArm.R'); armL = find('UpperArm.L'); legR = find('UpperLeg.R'); legL = find('UpperLeg.L');
+        neck = find('Neck'); head = find('Head'); eyes = [find('Eye.R'), find('Eye.L')]; mouth = find('Mouth'); pads = [find('Pad.R'), find('Pad.L')];
+        padM = pads[0].material; if (pads[1].material !== padM) pads[1].material = padM;
+        armR.userData.rest = { x: 0, z: 0.18 }; armL.userData.rest = { x: 0, z: -0.18 }; armR.rotation.z = 0.18; armL.rotation.z = -0.18;
+        api.rigged = true; res(api);
+      }, undefined, rej));
+    },
     // world position above the head (for bubbles / labels)
     anchor(out = new THREE.Vector3()) { return head.getWorldPosition(out).add(tmp2.set(0, 0.95 * scale, 0)); },
     setMood(m) { if (S.mood !== m) { S.prevMood = S.mood; S.mood = m; S.moodT = 0; } return api; },
@@ -203,7 +229,7 @@ export function createBot({ scale = 1, name = 'Byte', light = true } = {}) {
     // bubble + voice + talk animation
     say(text, { speak = true, hold, mood = 'talk' } = {}) {
       api.setMood(mood);
-      const words = text.split(/\s+/).length; const ms = hold ?? clamp(1400 + words * 330, 2200, 9000);
+      const words = text.split(/\s+/).length; let ms = hold ?? clamp(1400 + words * 330, 2200, 9000); if (innerWidth <= 720) ms = Math.min(ms, 3800); // phones: the strip covers content, keep it brief
       S.talkUntil = S.t + ms / 1000;
       if (bubble) bubble.show(text, ms);
       if (speak) voice.speak(text, { onend: () => { if (S.mood === 'talk' && !voice.enabled) return; S.talkUntil = Math.min(S.talkUntil, S.t + 0.4); } });
@@ -260,6 +286,7 @@ export function createBot({ scale = 1, name = 'Byte', light = true } = {}) {
     },
   };
   let bubble = null;
+  if (model) api.loadModel(model).catch((e) => console.warn('[byte] using procedural model:', e.message || e));
   return api;
 }
 function angleDiff(a, b) { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return d; }
@@ -279,6 +306,7 @@ export function createBubble(bot, camera, { name = bot.name, offsetX = 18, offse
     hide() { el.classList.remove('on'); visible = false; clearInterval(typing); },
     update() {
       if (!visible) return; if (performance.now() > hideAt) return b.hide();
+      if (innerWidth <= 720) { el.style.transform = ''; el.style.opacity = ''; el.style.borderRadius = ''; return; } // phone layout handled by CSS
       bot.anchor(v).project(camera);
       if (v.z > 1) { el.style.opacity = 0; return; } el.style.opacity = '';
       const sx = (v.x * 0.5 + 0.5) * innerWidth, y = (-v.y * 0.5 + 0.5) * innerHeight + offsetY;
