@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SolidBytes — Option 3 · Black Box · Round 2</title>
+<meta name="description" content="Layout mockup 3: a dark soundstage where each chapter is a lit exhibit." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #07090d; --slate: #141a24; --bone: #efe9dd; --mute: #8b93a1; --amber: #f2b25c; --sb: #1f8fd6;
+    --display: 'Inter Tight', system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--ink); color: var(--bone); font-family: var(--display); font-weight: 300; overflow-x: hidden; }
+  @media (pointer: fine) { body { cursor: none; } body a, body button { cursor: none; } }
+
+  /* loader */
+  #loader { position: fixed; inset: 0; z-index: 50; background: var(--ink); display: grid; place-items: center; transition: opacity .6s ease; }
+  #loader.done { opacity: 0; pointer-events: none; }
+  #loader .mark { font-weight: 700; font-size: 22px; letter-spacing: .3em; color: var(--bone); margin-bottom: 18px; text-align: center; }
+  #loader .bar { width: min(360px, 70vw); height: 1px; background: #1c2330; position: relative; }
+  #loader .bar i { position: absolute; left: 0; top: 0; height: 100%; width: 0; background: var(--bone); transition: width .15s linear; }
+  #loader .row { display: flex; justify-content: space-between; width: min(360px, 70vw); margin-top: 10px; font: 500 10px/1 var(--mono); letter-spacing: .22em; color: var(--mute); }
+
+  canvas#stage { position: fixed; inset: 0; z-index: 0; display: block; }
+
+  /* chrome */
+  .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; padding: 22px 32px; pointer-events: none; }
+  .topbar .brand { display: flex; flex-direction: column; gap: 4px; }
+  .topbar .brand b { font-weight: 700; font-size: 13px; letter-spacing: .32em; }
+  .topbar .brand span { font: 400 9px/1 var(--mono); letter-spacing: .26em; color: var(--mute); }
+  .topbar nav { display: flex; gap: 28px; pointer-events: auto; }
+  .topbar nav a { font: 500 10px/1 var(--mono); letter-spacing: .26em; color: var(--mute); text-decoration: none; transition: color .3s; }
+  .topbar nav a:hover, .topbar nav a.active { color: var(--bone); }
+  .topbar .menu { display: none; font: 500 10px/1 var(--mono); letter-spacing: .26em; color: var(--bone); }
+
+  .rail { position: fixed; left: 32px; bottom: 28px; z-index: 20; display: flex; gap: 26px; pointer-events: none; }
+  .rail span { font: 300 28px/1 var(--display); color: var(--mute); transition: color .4s; }
+  .rail span.active { color: var(--sb); }
+
+  .label { position: fixed; right: 32px; bottom: 32px; z-index: 20; font: 400 9px/1.6 var(--mono); letter-spacing: .26em; color: var(--mute); text-align: right; pointer-events: none; }
+
+  /* sections */
+  main { position: relative; z-index: 10; }
+  section { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 120px 32px 140px; pointer-events: none; }
+  section .kicker { font: 400 10px/1 var(--mono); letter-spacing: .3em; color: var(--mute); margin-bottom: 26px; }
+  section .kicker i { font-style: normal; color: var(--sb); }
+  section h1, section h2 { font-weight: 300; line-height: .95; letter-spacing: -.02em; max-width: 12ch; }
+  section h1 { font-size: clamp(56px, 10.5vw, 160px); }
+  section h2 { font-size: clamp(44px, 7.5vw, 112px); }
+  section p { margin-top: 32px; max-width: 44ch; font-size: clamp(15px, 1.3vw, 19px); line-height: 1.55; color: #cfc9bd; }
+  section .eyebrow { font: 500 10px/1 var(--mono); letter-spacing: .3em; color: var(--amber); margin-bottom: 18px; }
+  section .stats { margin-top: 28px; font: 400 10px/1.8 var(--mono); letter-spacing: .26em; color: var(--mute); }
+  section .cap, .ov .cap { margin-top: 18px; font: 400 9px/1.7 var(--mono); letter-spacing: .2em; color: var(--mute); max-width: 44ch; }
+  .ov-load .cap { margin-top: 10px; text-align: right; }
+  section .hint { margin-top: 56px; font: 400 10px/1 var(--mono); letter-spacing: .3em; color: var(--mute); }
+  .w { display: inline-block; opacity: 0; transform: translateY(.35em); transition: opacity .7s ease, transform .9s cubic-bezier(.2,.7,.2,1); margin-right: .22em; }
+  .in .w { opacity: 1; transform: none; }
+  .fade { opacity: 0; transform: translateY(14px); transition: opacity .9s ease .35s, transform 1s ease .35s; }
+  .in .fade { opacity: 1; transform: none; }
+  section.right { align-items: flex-end; text-align: right; }
+  section.right h2 { max-width: 14ch; }
+  section.right p { text-align: right; }
+
+  /* overlays per chapter */
+  .ov { position: fixed; z-index: 20; opacity: 0; transform: translateY(10px); transition: opacity .6s ease, transform .6s ease; pointer-events: none; }
+  body[data-chapter="1"] .ov-companion, body[data-chapter="4"] .ov-load, body[data-chapter="6"] .ov-contact { opacity: 1; transform: none; pointer-events: auto; }
+  .ov-companion { right: 32px; bottom: 84px; width: 260px; border: 1px solid #222a36; background: rgba(7,9,13,.55); padding: 16px; }
+  .ov-companion .t { font: 500 9px/1 var(--mono); letter-spacing: .26em; color: var(--mute); }
+  .ov-companion .n { margin-top: 10px; font-size: 18px; }
+  .ov-companion button { margin-top: 16px; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--sb); background: transparent; color: var(--sb); display: grid; place-items: center; }
+  .ov-companion button::before { content: ""; width: 10px; height: 16px; border-radius: 6px; background: var(--sb); }
+  .ov-companion button { cursor: pointer; position: relative; transition: border-color .3s; }
+  .ov-companion button.listening { border-color: var(--amber); } .ov-companion button.listening::before { background: var(--amber); }
+  .ov-companion button.listening::after { content: ""; position: absolute; inset: -1px; border-radius: 50%; border: 1px solid var(--amber); animation: sbPulse 1.1s ease-out infinite; }
+  @keyframes sbPulse { from { transform: scale(1); opacity: .9; } to { transform: scale(1.9); opacity: 0; } }
+  .ov-companion .sub { margin-top: 6px; font: 400 9px/1.6 var(--mono); letter-spacing: .2em; color: var(--mute); }
+  .ov-companion .hint { margin-top: 10px; font: 400 9px/1.6 var(--mono); letter-spacing: .2em; color: var(--mute); }
+  .ov-load { right: 32px; bottom: 84px; text-align: right; font: 500 11px/1.9 var(--mono); letter-spacing: .2em; color: var(--bone); }
+  .ov-load b { font-weight: 500; color: var(--sb); }
+  .ov-load .ok { color: var(--amber); }
+  .ov-contact { right: 32px; bottom: 84px; width: min(360px, calc(100vw - 64px)); border: 1px solid #222a36; background: rgba(7,9,13,.6); padding: 20px; }
+  .ov-contact .t { font: 500 9px/1 var(--mono); letter-spacing: .26em; color: var(--mute); margin-bottom: 14px; }
+  .ov-contact .f { display: flex; flex-direction: column; gap: 10px; }
+  .ov-contact .i { border-bottom: 1px solid #2a3340; padding: 10px 0; font-size: 14px; color: var(--mute); }
+  .ov-contact .i.big { min-height: 64px; }
+  .ov-contact input, .ov-contact textarea { width: 100%; background: transparent; border: 0; border-bottom: 1px solid #2a3340; padding: 10px 0; font: 300 14px/1.4 var(--display); color: var(--bone); outline: none; resize: none; }
+  .ov-contact input::placeholder, .ov-contact textarea::placeholder { color: var(--mute); }
+  .ov-contact input:focus, .ov-contact textarea:focus { border-bottom-color: var(--sb); }
+  .ov-contact textarea { min-height: 64px; }
+  .ov-contact .b { margin-top: 6px; padding: 14px; text-align: center; font: 500 10px/1 var(--mono); letter-spacing: .3em; background: var(--bone); color: var(--ink); border: 0; width: 100%; cursor: pointer; transition: opacity .3s; }
+  .ov-contact .b.busy { opacity: .55; pointer-events: none; }
+  .ov-contact .jev { margin-top: 12px; font: 500 10px/1.6 var(--mono); letter-spacing: .2em; color: var(--mute); min-height: 16px; }
+  .ov-contact .jev.ok { color: var(--sb); } .ov-contact .jev.no { color: var(--amber); }
+  .sb-voice { top: 70px; }
+  #contact { justify-content: flex-start; }
+  #team h2 { font-size: clamp(40px, 5.6vw, 84px); max-width: 13ch; }
+  .ov-contact { left: 32px; right: auto; }
+
+  footer { position: relative; z-index: 10; padding: 40px 32px; font: 400 9px/1 var(--mono); letter-spacing: .26em; color: var(--mute); }
+
+  /* cursor */
+  #cursor { position: fixed; z-index: 60; width: 18px; height: 18px; border: 1px solid var(--sb); border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); display: none; mix-blend-mode: screen; }
+  @media (pointer: fine) { #cursor { display: block; } }
+  #cursor { transition: width .2s, height .2s, border-color .2s; }
+  body.sb-hover #cursor { width: 34px; height: 34px; border-color: var(--amber); }
+
+  @media (max-width: 720px) {
+    .topbar { padding: 18px 20px; }
+    .topbar nav { display: none; } .topbar .menu { display: block; }
+    .rail { display: none; }
+    .label { right: 20px; bottom: 20px; }
+    section { padding: 100px 20px 120px; }
+    .ov-companion, .ov-load { right: 20px; bottom: 60px; }
+    .ov-contact { left: 20px; bottom: 60px; }
+    .ov-companion { width: 200px; }
+    .sb-voice { top: 58px; }
+  }
+</style>
+</head>
+<body data-chapter="0">
+<script>history.scrollRestoration="manual";addEventListener("load",()=>{if(!location.hash)scrollTo(0,0)});</script>
+
+<div id="loader" aria-hidden="true">
+  <div>
+    <div class="mark">SB</div>
+    <div class="bar"><i id="ldbar"></i></div>
+    <div class="row"><span>BUILDING THE WORLD</span><span id="ldpct">0%</span></div>
+  </div>
+</div>
+
+<canvas id="stage"></canvas>
+
+<header class="topbar">
+  <div class="brand"><b>SOLIDBYTES</b><span>AI · SYSTEMS · PEOPLE</span></div>
+  <nav aria-label="Chapters">
+    <a href="#voice" data-ch="1">VOICE</a>
+    <a href="#intelligence" data-ch="2">INTELLIGENCE</a>
+    <a href="#work" data-ch="3">WORK</a>
+    <a href="#load" data-ch="4">LOAD</a>
+    <a href="#team" data-ch="5">TEAM</a>
+    <a href="#contact" data-ch="6">CONTACT</a>
+  </nav>
+  <div class="menu">MENU</div>
+</header>
+
+<div class="rail" aria-hidden="true"><span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span></div>
+<div class="label">BLACK BOX<br />OPTION 3 · MOCKUP · ROUND 2</div>
+
+<div class="ov ov-companion"><div class="t">BYTE · YOUR GUIDE</div><div class="n" id="byteStatus">Byte is listening.</div><div class="sub">3D CHARACTER · POC-STYLE VRM LATER</div><button type="button" id="micBtn" aria-label="Talk to Byte"></button><div class="hint">CLICK THE MIC · ASK ABOUT THE TEAM, PROJECTS, LOAD</div></div>
+<div class="ov ov-load">RPS <b id="rps">48,210</b><br />P99 <b id="p99">38 ms</b><br />ERRORS <span class="ok" id="err">0.00%</span><div class="cap">DEMO NUMBERS · Proven at Mobifone (5,000+ employees) · ThaiMarket · Kara Idols</div></div>
+<div class="ov ov-contact">
+  <div class="t">JEV SCREENS EVERY MESSAGE</div>
+  <form class="f" id="jevForm" autocomplete="off"><input id="jevName" placeholder="Your name" /><textarea id="jevIdea" placeholder="What do you want to build?"></textarea><button class="b" type="submit" id="jevSend">SEND TO JEV</button><div class="jev" id="jevOut"></div></form>
+</div>
+
+<main>
+  <section id="hero">
+    <div class="kicker">CHAPTER 00 — <i>THE THRESHOLD</i></div>
+    <div class="eyebrow fade">FEEL THE TECH · MAKE THE GROWTH</div>
+    <h1 data-reveal>We build what you describe.</h1>
+    <p class="fade">We deliver stable, secure, and scalable digital products that optimize your operations and drive sustainable growth.</p>
+    <div class="stats fade">150+ PROJECTS · 15+ COUNTRIES · 100+ BYTES</div>
+    <div class="hint fade">SCROLL TO ENTER</div>
+  </section>
+
+  <section id="voice">
+    <div class="kicker">CHAPTER 01 — <i>VOICE AI</i></div>
+    <h2 data-reveal>Speak, and it listens.</h2>
+    <p class="fade">Byte hears you, answers in your language and walks you through the work. Voice first, screen second.</p>
+    <div class="cap fade">Built on our AI Smart Companion POC — real-time voice + AR embodiment. Flip VOICE ON, then click the mic.</div>
+  </section>
+
+  <section id="intelligence" class="right">
+    <div class="kicker">CHAPTER 02 — <i>INTELLIGENCE</i></div>
+    <h2 data-reveal>An idea becomes an architecture.</h2>
+    <p class="fade">Describe the product. We shape the system: load balancer, services, cache, queue, data. Drawn live, argued honestly.</p>
+    <div class="cap fade">HOVER A BLOCK</div>
+  </section>
+
+  <section id="work" class="right">
+    <div class="kicker">CHAPTER 03 — <i>THE WORK</i></div>
+    <h2 data-reveal>150+ shipped. Twelve you can open.</h2>
+    <p class="fade">AI, e-commerce, games, enterprise software. Fifteen countries, one crew.</p>
+    <div class="cap fade">HOVER A PROJECT · CLICK TO OPEN</div>
+  </section>
+
+  <section id="load">
+    <div class="kicker">CHAPTER 04 — <i>HIGH LOAD</i></div>
+    <h2 data-reveal>Built to take the hit.</h2>
+    <p class="fade">Peak traffic is a design input, not a surprise. We test the system against the day it matters.</p>
+  </section>
+
+  <section id="team" class="right">
+    <div class="kicker">CHAPTER 05 — <i>THE TEAM</i></div>
+    <h2 data-reveal>A hundred-plus bytes. One floor.</h2>
+    <p class="fade">Engineers, QA, BA and design under one roof in Vietnam, with remote teams that plug into yours. Each byte individually valuable, collectively powerful.</p>
+    <div class="cap fade">HOVER A FACE · CLICK TO MEET</div>
+  </section>
+
+  <section id="contact">
+    <div class="kicker">CHAPTER 06 — <i>CONTACT</i></div>
+    <h2 data-reveal>Tell us what you want to build.</h2>
+    <p class="fade">Jev reads every message before a human does. Real ideas get through. Spam does not.</p>
+  </section>
+</main>
+<footer>© SOLIDBYTES · MOCKUP OPTION 3 · NOTHING HERE IS FINAL</footer>
+
+<div id="cursor" aria-hidden="true"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { createBot, createVoiceToggle, voice } from './shared/sb-bot.js';
+import { photoCard, labelSprite, createPicker, createDetail, tip, tipPerson, tipProject, preload } from './shared/sb-cards.js';
+import { BOT, TEAM, TEAM_LEADS, TEAM_CREW, PROJECTS, LOAD_CASES } from './shared/sb-data.js';
+
+// ---------- palette ----------
+const C = { ink: 0x07090d, slate: 0x141a24, bone: 0xefe9dd, mute: 0x8b93a1, amber: 0xf2b25c, sb: 0x1f8fd6 };
+const DARK = 0x0b0e13;
+const NCH = 7; // 00 hero … 06 contact
+
+// ---------- renderer / scene ----------
+const canvas = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+const scene = new THREE.Scene();
+const BG = 0x090c12;
+scene.background = new THREE.Color(BG);
+scene.fog = new THREE.FogExp2(BG, 0.028);
+
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 120);
+
+scene.add(new THREE.AmbientLight(C.slate, 0.35));
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(260, 260), new THREE.MeshStandardMaterial({ color: 0x0a0d12, roughness: 0.22, metalness: 0.1 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+
+// ---------- helpers ----------
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (t) => t * t * (3 - 2 * t);
+const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+function canvasTex(draw, w = 512, h = 256) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d'); draw(ctx, w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+function textTex(text, { size = 120, weight = 300, color = '#efe9dd', mono = false, w = 512, h = 256 } = {}) {
+  return canvasTex((ctx) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `${weight} ${size}px ${mono ? '"JetBrains Mono", monospace' : '"Inter Tight", sans-serif'}`;
+    ctx.fillText(text, w / 2, h / 2);
+  }, w, h);
+}
+const poolTex = canvasTex((ctx, w, h) => {
+  const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+  g.addColorStop(0, 'rgba(255,255,255,0.9)'); g.addColorStop(0.5, 'rgba(255,255,255,0.18)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+}, 256, 256);
+function lightPool(color, size) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: poolTex, color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  m.material.polygonOffset = true; m.material.polygonOffsetFactor = -2; m.material.polygonOffsetUnits = -2; // no z-fight with the floor at long range
+  m.rotation.x = -Math.PI / 2; m.position.y = 0.03; return m;
+}
+function label(text, w = 1.6, h = 0.4, opts = {}) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTex(text, { size: 72, weight: 500, mono: true, ...opts }), transparent: true, depthWrite: false }));
+  s.scale.set(w, h, 1); return s;
+}
+function keyLight(color, intensity, angle, pen) {
+  const l = new THREE.SpotLight(color, intensity, 40, angle, pen, 1.2);
+  l.castShadow = true; l.shadow.mapSize.set(1024, 1024); l.shadow.bias = -0.0005; l.shadow.normalBias = 0.04; l.shadow.radius = 4; l.shadow.camera.near = 1; l.shadow.camera.far = 30;
+  return l;
+}
+function rimLight(color, intensity, angle, pen) { return new THREE.SpotLight(color, intensity, 40, angle, pen, 1.2); }
+
+const stdDark = new THREE.MeshStandardMaterial({ color: 0x1a1f28, roughness: 0.55, metalness: 0.05 });
+const stdBone = new THREE.MeshStandardMaterial({ color: 0xcfc9bd, roughness: 0.6 });
+
+// ---------- stage layout: seven exhibits on an arc ----------
+const R = 24;
+const ANG = [-78, -52, -26, 0, 26, 52, 78].map((d) => (d * Math.PI) / 180);
+// per-chapter shot: distance, camera height, look height, lateral camera offset, lateral LOOK offset (loff > 0 pushes the exhibit to screen-right)
+const SHOT = [
+  { d: 11.5, h: 1.3, hl: 0.9, off: 0, loff: 2.6 },       // hero: heading left, slab + Byte right
+  { d: 5.8, h: 1.5, hl: 1.0, off: 0.9, loff: 1.1 },      // voice: Byte right of centre
+  { d: 11, h: 4.6, hl: 1.9, off: 0, loff: -1.4 },        // intelligence: heading right, blocks left
+  { d: 10.5, h: 3.2, hl: 2.8, off: 0.6, loff: -1.9 },    // work: heading right, 3×4 wall left
+  { d: 9, h: 2.6, hl: 1.5, off: 2.6, loff: 2.6 },        // load: heading left, racks right
+  { d: 13, h: 3.2, hl: 1.6, off: 0, loff: -1.6 },        // team: heading right (shrunk), two rows of faces left, Byte at the left corner
+  { d: 6, h: 1.9, hl: 0.95, off: 1.0, loff: 3.0 },       // contact: heading top-left, form bottom-left, desk + Byte right
+];
+const E = ANG.map((a) => new THREE.Vector3(R * Math.sin(a), 0, R * Math.cos(a)));
+const camPts = [], lookPts = [];
+ANG.forEach((a, i) => {
+  const e = E[i], s = SHOT[i];
+  const toC = e.clone().multiplyScalar(-1).normalize();
+  const tan = new THREE.Vector3(Math.cos(a), 0, -Math.sin(a));
+  camPts.push(e.clone().addScaledVector(toC, s.d).addScaledVector(tan, s.off).setY(s.h));
+  lookPts.push(e.clone().addScaledVector(tan, s.loff).setY(s.hl));
+});
+const camCurve = new THREE.CatmullRomCurve3(camPts, false, 'centripetal', 0.5);
+const lookCurve = new THREE.CatmullRomCurve3(lookPts, false, 'centripetal', 0.5);
+
+// exhibit groups: each faces the stage centre; local +z points toward the camera side, local +x is screen-right
+const EX = ANG.map((a, i) => {
+  const g = new THREE.Group(); g.position.copy(E[i]); g.rotation.y = a + Math.PI; scene.add(g);
+  const toC = E[i].clone().multiplyScalar(-1).normalize();
+  const key = keyLight(C.amber, 0, 0.42, 0.55); key.castShadow = false; // shadows come from one travelling key (see skey)
+  key.position.copy(E[i]).addScaledVector(toC, 3.5).add(new THREE.Vector3(1.5, 7.5, 0));
+  key.target.position.copy(E[i]).setY(0.6); scene.add(key, key.target);
+  const rim = rimLight(C.sb, 0, 0.5, 0.7);
+  rim.position.copy(E[i]).addScaledVector(toC, -4.5).add(new THREE.Vector3(-2, 5.5, 0));
+  rim.target.position.copy(E[i]).setY(1); scene.add(rim, rim.target);
+  const pool = lightPool(C.amber, 9); pool.position.copy(E[i]); scene.add(pool);
+  const rise = new THREE.Group(); g.add(rise);
+  return { g, rise, key, rim, pool, keyI: 14, rimI: 7, a: 0, on: false, enterT: -99 };
+});
+const toWorld = (i, x, y, z) => EX[i].g.localToWorld(new THREE.Vector3(x, y, z));
+// one shadow-casting key that takes over the active exhibit's key: 1 shadow pass per frame instead of 7, light count stays constant
+const skey = keyLight(C.amber, 0, 0.42, 0.55); skey.shadow.mapSize.set(2048, 2048); skey.shadow.camera.near = 3; skey.shadow.camera.far = 18; skey.shadow.bias = -0.001; skey.shadow.normalBias = 0.08; skey.shadow.radius = 6; skey.shadow.camera.updateProjectionMatrix(); scene.add(skey, skey.target);
+
+// ---------- Byte, picking, detail ----------
+const bot = createBot({ scale: 0.9 }); scene.add(bot.group);
+bot.attachBubble(camera); createVoiceToggle();
+const detail = createDetail();
+const picker = createPicker({
+  camera,
+  onHover: (o, d, p) => { tip(d.kind === 'person' ? tipPerson(d.data) : d.kind === 'project' ? tipProject(d.data) : d.kind === 'case' ? `${d.data.name}<small>${d.data.fact}</small>` : `${d.data.name}<small>${d.data.role}</small>`, p.x, p.y); },
+  onLeave: () => tip(null),
+  onClick: (o, d) => { if (d.kind === 'person') detail.showPerson(d.data); else if (d.kind === 'project') detail.showProject(d.data); },
+});
+const hoverables = []; // meshes with userData.card, eased each frame
+
+// Byte's spot per chapter (exhibit-local), mood, and what to point at (exhibit-local)
+const SPOT = [
+  { at: [2.1, 0, 1.3], mood: 'wave' },
+  { at: [0, 0, 0.2], mood: 'talk' },
+  { at: [-3.0, 0, 1.0], mood: 'point', to: [0.86, 2.6, -0.6] },
+  { at: [3.4, 0, -0.2], mood: 'point', to: [-1.2, 2.6, 0] },   // right of the wall, under the heading's baseline
+  { at: [0.9, 0, 1.7], mood: 'cheer' },
+  { at: [-4.1, 0, 1.9], mood: 'wave' },   // front-left corner of the stage, beside the crew, under the key
+  { at: [-1.5, 0, 0.5], mood: 'point', to: [0.35, 0.85, 0.05] },
+];
+const LINE_KEYS = ['hero', 'voice', 'intel', 'work', 'load', 'team', 'contact'];
+
+// ---------- 00 HERO: slab + SB mark + dust in the beam ----------
+{
+  const ex = EX[0];
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.0, 0.26), stdDark); slab.position.y = 1.12; slab.rotation.x = -0.21; slab.castShadow = slab.receiveShadow = true; ex.rise.add(slab);
+  const mark = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.6), new THREE.MeshBasicMaterial({ map: textTex('SB', { size: 170, weight: 700, color: '#efe9dd' }), transparent: true }));
+  mark.position.z = 0.135; slab.add(mark);
+  const foot = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.12, 1.4), stdDark); foot.position.y = 0.06; foot.receiveShadow = true; ex.rise.add(foot);
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(2.7, 8.5, 40, 1, true), new THREE.MeshBasicMaterial({ color: C.amber, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  cone.position.y = 4.25; cone.rotation.x = -0.08; ex.g.add(cone); ex.cone = cone;
+  const N = 420, pos = new Float32Array(N * 3), seed = new Float32Array(N);
+  for (let i = 0; i < N; i++) { seed[i] = Math.random(); const y = Math.random() * 7; const r = 0.3 + y * 0.3; const t = Math.random() * Math.PI * 2; pos[i * 3] = Math.cos(t) * r * Math.random(); pos[i * 3 + 1] = y; pos[i * 3 + 2] = Math.sin(t) * r * Math.random(); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const dust = new THREE.Points(geo, new THREE.PointsMaterial({ color: C.amber, size: 0.045, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+  ex.g.add(dust); ex.dust = dust; ex.seed = seed;
+  ex.keyI = 22; ex.key.angle = 0.5; ex.key.penumbra = 0.5; ex.rimI = 0;
+  ex.key.position.copy(E[0]).add(new THREE.Vector3(0, 8.4, 0)).addScaledVector(E[0].clone().multiplyScalar(-1).normalize(), 1.2);
+  ex.key.target.position.copy(toWorld(0, 1.5, 0, 0.6)).setY(1.0);
+}
+
+// ---------- 01 VOICE: Byte on the disc + pulse rings ----------
+{
+  const ex = EX[1];
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.05, 48), stdDark); disc.position.y = 0.025; disc.receiveShadow = true; ex.rise.add(disc);
+  ex.rings = [];
+  for (let k = 0; k < 3; k++) {
+    const r = new THREE.Mesh(new THREE.RingGeometry(0.96, 1.0, 64), new THREE.MeshBasicMaterial({ color: C.sb, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+    r.rotation.x = -Math.PI / 2; r.position.y = 0.06; ex.g.add(r); ex.rings.push(r);
+  }
+  ex.key.angle = 0.3; ex.key.penumbra = 0.5; ex.keyI = 12; ex.rimI = 14; ex.rim.color.set(C.amber);
+}
+
+// ---------- 02 INTELLIGENCE: architecture blocks assemble (hoverable) ----------
+{
+  const ex = EX[2];
+  const spec = [
+    ['LB', -2.5, 1.4, 0, 'spreads traffic'], ['API', -0.85, 1.4, 0, 'stateless services'], ['CACHE', 0.86, 2.6, -0.6, 'hot reads'], ['QUEUE', 0.86, 0.5, 0.6, 'absorbs spikes'], ['DB', 2.6, 1.4, 0, 'source of truth'],
+  ];
+  const mat = new THREE.MeshStandardMaterial({ color: 0x1c222c, roughness: 0.4, metalness: 0.15, emissive: C.sb, emissiveIntensity: 0.0 });
+  ex.blocks = spec.map(([name, x, y, z, role]) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.85, 1.0), mat.clone()); b.castShadow = true; b.userData.target = new THREE.Vector3(x, y, z); b.position.set(x, 0, z); ex.rise.add(b);
+    const l = label(name, 1.5, 0.38, { color: '#efe9dd' }); l.position.set(0, name === 'DB' ? -0.72 : 0.75, 0); b.add(l); // DB label below, clear of the heading
+    picker.add(b, { kind: 'arch', data: { name, role: `${name} — ${role}` } }); b.userData.hover = 0;
+    return b;
+  });
+  const lines = [[0, 1], [1, 2], [1, 3], [2, 4], [3, 4]];
+  const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(lines.length * 6), 3));
+  ex.lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: C.sb, transparent: true, opacity: 0 })); ex.rise.add(ex.lines); ex.lineIdx = lines;
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(7, 0.12, 3), stdDark); plinth.position.y = 0.06; plinth.receiveShadow = true; ex.rise.add(plinth);
+  ex.key.angle = 0.5; ex.keyI = 18; ex.rimI = 3; ex.key.target.position.copy(toWorld(2, 0, 0, 0)).setY(1.2);
+}
+
+// ---------- 03 WORK: twelve framed projects rise into a fanned 4×3 wall ----------
+{
+  const ex = EX[3];
+  const H = 1.05, PX = 1.85, PY = 1.35; ex.cards = [];
+  PROJECTS.forEach((p, k) => {
+    const col = k % 3, row = Math.floor(k / 3); const w = H * Math.min(p.ratio, 1.6);
+    const x = (col - 1) * PX, y = 0.9 + (3 - row) * PY, z = -Math.abs(x) * 0.09;
+    const card = photoCard({ url: p.img, w, h: H, imgRatio: p.ratio, radius: 0.04, dim: 0.72 });
+    card.userData.home = new THREE.Vector3(x, y, z); card.userData.k = k; card.position.copy(card.userData.home); card.rotation.y = -x * 0.07;
+    card.userData.card.setOpacity(0); ex.rise.add(card); picker.add(card, { kind: 'project', data: p }); hoverables.push(card); ex.cards.push(card);
+    const l = labelSprite(p.name, { sub: p.metric.join(' '), width: 1.5, size: 34 }); l.position.set(x, y - H / 2 - 0.2, z + 0.01); l.rotation.y = card.rotation.y; l.material.opacity = 0; ex.rise.add(l); card.userData.label = l;
+  });
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.12, 2.2), stdDark); plinth.position.y = 0.06; plinth.receiveShadow = true; ex.rise.add(plinth);
+  ex.key.angle = 0.62; ex.key.penumbra = 0.6; ex.keyI = 10; ex.rimI = 8;
+  ex.key.position.copy(E[3]).add(new THREE.Vector3(0, 9.5, 0)).addScaledVector(E[3].clone().multiplyScalar(-1).normalize(), 4.0);
+  ex.key.target.position.copy(toWorld(3, 0, 0, 0)).setY(3.0);
+}
+
+// ---------- 04 LOAD: racks + LEDs + traffic + three case posters ----------
+{
+  const ex = EX[4];
+  const rackMat = new THREE.MeshStandardMaterial({ color: 0x1b212b, roughness: 0.42, metalness: 0.35 });
+  const edgeM = new THREE.MeshBasicMaterial({ color: C.sb, transparent: true, opacity: 0.75 });
+  const edgeG = new THREE.BoxGeometry(0.014, 2.0, 0.014);
+  for (let i = 0; i < 6; i++) {
+    const x = -2.75 + i * 1.1;
+    const r = new THREE.Mesh(new THREE.BoxGeometry(0.62, 2.1, 0.85), rackMat); r.position.set(x, 1.05, 0); r.castShadow = r.receiveShadow = true; ex.rise.add(r);
+    [-0.305, 0.305].forEach((dx) => { const e = new THREE.Mesh(edgeG, edgeM); e.position.set(x + dx, 1.05, 0.428); ex.rise.add(e); });
+  }
+  const fill = new THREE.PointLight(C.sb, 0, 14, 1.4); fill.position.set(0, 1.7, 2.6); ex.rise.add(fill); ex.fill = fill;
+  const ledN = 6 * 14;
+  const led = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.07, 0.035), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), ledN);
+  const m = new THREE.Matrix4(); let n = 0; ex.ledPhase = new Float32Array(ledN);
+  for (let i = 0; i < 6; i++) for (let j = 0; j < 14; j++) { m.makeTranslation(-2.75 + i * 1.1 + (j % 2 ? 0.14 : -0.14), 0.25 + Math.floor(j / 2) * 0.26, 0.43); led.setMatrixAt(n, m); led.setColorAt(n, new THREE.Color(DARK)); ex.ledPhase[n] = Math.random() * 10; n++; }
+  ex.rise.add(led); ex.led = led;
+  const PN = 650, pos = new Float32Array(PN * 3), vel = new Float32Array(PN);
+  for (let i = 0; i < PN; i++) { pos[i * 3] = -4 + Math.random() * 8; pos[i * 3 + 1] = 0.25 + Math.random() * 1.7; pos[i * 3 + 2] = -0.25 + Math.random() * 0.5 + (Math.random() < 0.5 ? 0.9 : -0.9); vel[i] = 1.5 + Math.random() * 3; }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  ex.traffic = new THREE.Points(geo, new THREE.PointsMaterial({ color: C.sb, size: 0.05, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); ex.vel = vel; ex.rise.add(ex.traffic);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.1, 2.6), stdDark); base.position.y = 0.05; base.receiveShadow = true; ex.rise.add(base);
+  // three lit case posters above the racks: the days the system had to hold
+  ex.cards = [];
+  LOAD_CASES.forEach((c, k) => {
+    const x = (k - 1) * 1.75 + 0.7, y = 2.75, z = -0.1;
+    const card = photoCard({ url: c.img, w: 1.5, h: 0.9, imgRatio: 1.5, radius: 0.03, dim: 0.7 });
+    card.userData.home = new THREE.Vector3(x, y, z); card.userData.k = k; card.position.copy(card.userData.home); card.userData.card.setOpacity(0);
+    ex.rise.add(card); picker.add(card, { kind: 'case', data: c }); hoverables.push(card); ex.cards.push(card);
+    const l = labelSprite(c.name, { sub: c.fact, width: 1.9, size: 30 }); l.position.set(x, y - 0.65, z + 0.01); l.material.opacity = 0; ex.rise.add(l); card.userData.label = l;
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.5, 6), stdDark); arm.position.set(x, 2.35, z); ex.rise.add(arm);
+  });
+  ex.key.angle = 0.46; ex.keyI = 10; ex.rimI = 10; ex.rim.color.set(C.sb);
+}
+
+// ---------- 05 TEAM: eleven real faces in two rows, the crowd stepping into the cone behind ----------
+{
+  const ex = EX[5];
+  ex.cards = [];
+  // company photo: the leads front and centre on a higher plinth, bigger and amber-framed; the crew in a row behind on a high riser
+  const CW = 0.9, CH = 1.125, PITCH = 1.05, LW = CW * 1.3, LH = CH * 1.3, LPITCH = LW + 0.3;
+  const rows = [
+    { people: TEAM_LEADS, w: LW, h: LH, pitch: LPITCH, z: 1.4, riser: 0.55, lead: true },
+    { people: TEAM_CREW, w: CW, h: CH, pitch: PITCH, z: -0.6, riser: 2.1, lead: false },
+  ];
+  let k = 0;
+  rows.forEach((R0) => R0.people.forEach((m, i) => {
+    const x = (i - (R0.people.length - 1) / 2) * R0.pitch, z = R0.z, riser = R0.riser;
+    const card = photoCard({ url: m.img, w: R0.w, h: R0.h, imgRatio: 0.8, radius: 0.05, dim: R0.lead ? 0.9 : 0.8, borderColor: R0.lead ? 0xf2b25c : 0x1c2330, border: R0.lead ? 0.03 : 0.022 });
+    card.userData.home = new THREE.Vector3(x, riser + R0.h / 2, z); card.userData.k = k++; card.position.copy(card.userData.home); card.userData.card.setOpacity(0);
+    ex.rise.add(card); picker.add(card, { kind: 'person', data: m }); hoverables.push(card); ex.cards.push(card);
+    const pl = new THREE.Mesh(new THREE.BoxGeometry(R0.w + 0.08, riser, 0.34), stdDark); pl.position.set(x, riser / 2, z - 0.02); pl.castShadow = pl.receiveShadow = true; ex.rise.add(pl);
+    const l = labelSprite(m.name, { sub: m.role, width: R0.lead ? 1.45 : 1.1, size: R0.lead ? 44 : 38 }); l.position.set(x, riser - (R0.lead ? 0.2 : 0.16), z + 0.18); l.material.opacity = 0; ex.rise.add(l); card.userData.label = l;
+  }));
+  const ROWS = 9, COLS = 12, N = ROWS * COLS; // 108 bytes behind the crew
+  const mat = new THREE.MeshStandardMaterial({ color: 0x0e1218, roughness: 0.8, metalness: 0 });
+  const bodies = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.22, 0.75, 4, 10), mat, N);
+  const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.17, 12, 8), mat, N);
+  bodies.castShadow = heads.castShadow = true;
+  const m = new THREE.Matrix4(); let n = 0;
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const x = (c - (COLS - 1) / 2) * 0.95 + (r % 2 ? 0.45 : 0) + (Math.random() - 0.5) * 0.25;
+    const z = -2.6 - r * 1.05 + (Math.random() - 0.5) * 0.3;
+    m.makeTranslation(x, 0.8, z); bodies.setMatrixAt(n, m); m.makeTranslation(x, 1.45, z); heads.setMatrixAt(n, m); n++;
+  }
+  ex.rise.add(bodies, heads);
+  const stage = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.1, 4.6), stdDark); stage.position.set(0, 0.05, 0.1); stage.receiveShadow = true; ex.rise.add(stage);
+  ex.key.position.copy(E[5]).add(new THREE.Vector3(0, 11, 0)).addScaledVector(E[5].clone().normalize(), -3);
+  ex.key.target.position.copy(toWorld(5, -0.8, 0, -0.6)).setY(0); ex.key.penumbra = 0.6; ex.keyI = 30; ex.rimI = 14; ex.rim.angle = 0.7;
+  ex.pool.scale.setScalar(2);
+}
+
+// ---------- 06 CONTACT: desk, lamp, phone ----------
+{
+  const ex = EX[6];
+  const top = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.06, 0.85), stdBone); top.position.y = 0.76; top.castShadow = top.receiveShadow = true; ex.rise.add(top);
+  const legG = new THREE.BoxGeometry(0.05, 0.74, 0.05);
+  [[-0.85, -0.38], [0.85, -0.38], [-0.85, 0.38], [0.85, 0.38]].forEach(([x, z]) => { const l = new THREE.Mesh(legG, stdDark); l.position.set(x, 0.37, z); l.castShadow = false; ex.rise.add(l); });
+  const metal = new THREE.MeshStandardMaterial({ color: 0x9a9fa8, roughness: 0.35, metalness: 0.7 });
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, 0.025, 24), metal); base.position.set(-0.62, 0.8, -0.22); base.castShadow = true; ex.rise.add(base);
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.62, 10), metal); post.position.set(-0.62, 1.11, -0.22); post.castShadow = true; ex.rise.add(post);
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.46, 10), metal); arm.position.set(-0.41, 1.41, -0.16); arm.rotation.z = Math.PI / 2; arm.rotation.y = 0.26; arm.castShadow = true; ex.rise.add(arm);
+  const shade = new THREE.Mesh(new THREE.ConeGeometry(0.21, 0.22, 24, 1, true), new THREE.MeshStandardMaterial({ color: 0x2a2f3a, roughness: 0.6, side: THREE.DoubleSide, emissive: C.amber, emissiveIntensity: 0.25 })); shade.position.set(-0.2, 1.33, -0.1); ex.rise.add(shade);
+  const bulb = new THREE.PointLight(C.amber, 0, 6, 1.6); bulb.position.set(-0.2, 1.25, -0.1); ex.rise.add(bulb); ex.bulb = bulb;
+  const phone = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.03, 0.7), new THREE.MeshStandardMaterial({ color: 0x0b0e13, roughness: 0.3, metalness: 0.4 })); phone.position.set(0.35, 0.805, 0.05); phone.rotation.y = -0.3; ex.rise.add(phone);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.64), new THREE.MeshBasicMaterial({ color: C.sb, transparent: true, opacity: 0.35 })); screen.rotation.x = -Math.PI / 2; screen.position.y = 0.017; phone.add(screen);
+  ex.key.angle = 0.3; ex.keyI = 10; ex.rimI = 6;
+}
+
+// ---------- post ----------
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.32, 0.45, 0.86);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const grain = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, amount: { value: 0.04 }, vig: { value: 0.42 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float time, amount, vig; varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
+    void main(){ vec4 c = texture2D(tDiffuse, vUv); float n = hash(vUv * 1024.0 + fract(time)); c.rgb += (n - 0.5) * amount;
+      float d = distance(vUv, vec2(0.5)); c.rgb *= 1.0 - smoothstep(0.38, 0.95, d) * vig; gl_FragColor = c; }`,
+});
+composer.addPass(grain);
+
+// ---------- scroll / chapters ----------
+let target = 0, cur = 0, chapter = -1;
+const docRange = () => Math.max(1, document.documentElement.scrollHeight - innerHeight);
+addEventListener('scroll', () => { target = clamp(scrollY / docRange(), 0, 1); }, { passive: true });
+const railEls = [...document.querySelectorAll('.rail span')], navEls = [...document.querySelectorAll('.topbar nav a')];
+let sayTimer = 0, started = false;
+function setChapter(c) {
+  if (c === chapter) return; chapter = c; document.body.dataset.chapter = c;
+  railEls.forEach((el, i) => el.classList.toggle('active', i + 1 === c));
+  navEls.forEach((el) => el.classList.toggle('active', +el.dataset.ch === c));
+  picker.enabled = c >= 2 && c <= 5;
+  // Byte walks to the next exhibit, then talks
+  const sp = SPOT[c]; const dest = toWorld(c, ...sp.at);
+  bot.hush(); clearTimeout(sayTimer);
+  if (!started) { started = true; bot.place(dest, Math.atan2(camera.position.x - dest.x, camera.position.z - dest.z)); }
+  else bot.goTo(dest);
+  sayTimer = setTimeout(() => {
+    bot.say(BOT.lines[LINE_KEYS[c]], { mood: 'talk' });
+    sayTimer = setTimeout(() => { if (chapter !== c) return; if (sp.mood === 'point') bot.pointAt(toWorld(c, ...sp.to)); else bot.setMood(sp.mood); }, 3200);
+  }, 450);
+}
+
+// word reveal
+document.querySelectorAll('[data-reveal]').forEach((h) => {
+  const words = h.textContent.trim().split(/\s+/); h.textContent = '';
+  words.forEach((w, i) => { const s = document.createElement('span'); s.className = 'w'; s.textContent = w; s.style.transitionDelay = `${i * 40}ms`; h.appendChild(s); });
+});
+const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) e.target.classList.add('in'); }), { threshold: 0.4 });
+document.querySelectorAll('section').forEach((s) => io.observe(s));
+
+// counters
+const rpsEl = document.getElementById('rps'), p99El = document.getElementById('p99'), errEl = document.getElementById('err');
+let rps = 48210, p99 = 38;
+setInterval(() => { rps = clamp(rps + (Math.random() - 0.5) * 2200, 41000, 56000); p99 = clamp(p99 + (Math.random() - 0.5) * 6, 29, 52); rpsEl.textContent = Math.round(rps).toLocaleString('en-US'); p99El.textContent = `${Math.round(p99)} ms`; errEl.textContent = Math.random() < 0.9 ? '0.00%' : '0.01%'; }, 600);
+
+// ---------- mic: Web Speech placeholder ----------
+const micBtn = document.getElementById('micBtn'), byteStatus = document.getElementById('byteStatus');
+let listening = null;
+micBtn.addEventListener('click', () => {
+  if (listening) { listening.stop(); return; }
+  if (!voice.enabled) voice.enable();
+  bot.hush();
+  listening = voice.listen({
+    onStart: () => { micBtn.classList.add('listening'); byteStatus.textContent = 'Byte is listening…'; },
+    onResult: (text) => { byteStatus.textContent = `“${text}”`; const hit = BOT.intents.find(([re]) => re.test(text)); bot.say(hit ? hit[1] : BOT.intents.at(-1)[1]); },
+    onEnd: () => { micBtn.classList.remove('listening'); listening = null; setTimeout(() => { if (!listening) byteStatus.textContent = 'Byte is listening.'; }, 6000); },
+  });
+  if (!listening) { byteStatus.textContent = 'No mic API here.'; bot.say('No microphone API in this browser. Chrome works.'); }
+});
+
+// ---------- Jev form (visual only) ----------
+const jevForm = document.getElementById('jevForm'), jevOut = document.getElementById('jevOut'), jevSend = document.getElementById('jevSend'), jevIdea = document.getElementById('jevIdea');
+jevForm.addEventListener('submit', (e) => {
+  e.preventDefault(); if (jevSend.classList.contains('busy')) return;
+  const idea = jevIdea.value.trim();
+  jevSend.classList.add('busy'); jevOut.className = 'jev'; jevOut.textContent = 'JEV IS READING…';
+  setTimeout(() => {
+    jevSend.classList.remove('busy');
+    const spam = idea.length < 8 || /http|casino|\$\$\$/i.test(idea);
+    if (spam) { jevOut.className = 'jev no'; jevOut.textContent = 'JEV: BLOCKED. LOOKS LIKE SPAM.'; bot.say('Jev blocked that one. Tell us what you actually want to build.'); }
+    else { jevOut.className = 'jev ok'; jevOut.textContent = 'JEV: LOOKS HUMAN. ROUTED TO KIEU (SALES & ADMIN).'; bot.say('Looks human. Kieu has it. Talk soon.', { mood: 'cheer' }); }
+  }, 900);
+});
+
+// cursor
+const cursor = document.getElementById('cursor'); let cx = innerWidth / 2, cy = innerHeight / 2, mx = cx, my = cy;
+addEventListener('pointermove', (e) => { mx = e.clientX; my = e.clientY; }, { passive: true });
+
+// ---------- loop ----------
+const clock = new THREE.Clock();
+const tmpC = new THREE.Color(), colOn = new THREE.Color(C.sb), colAmb = new THREE.Color(C.amber), colOff = new THREE.Color(DARK);
+const _p = new THREE.Vector3(), _l = new THREE.Vector3();
+
+// staggered card entrance: opacity + rise, driven by the moment the chapter lit up
+function animateCards(ex, t, dt, { fly = false, step = 0.06, dur = 0.7 } = {}) {
+  if (!ex.cards) return;
+  const since = ex.on ? t - ex.enterT : -1;
+  ex.cards.forEach((card) => {
+    const k = card.userData.k, api = card.userData.card;
+    const u = since < 0 ? Math.max(0, api.uniforms.uOpacity.value - dt * 3) : easeOut(clamp((since - k * step) / dur, 0, 1));
+    api.setOpacity(u); if (card.userData.label) card.userData.label.material.opacity = u;
+    const h = card.userData.home, hv = api.hover;
+    card.position.set(h.x, h.y + (1 - u) * (fly ? -0.6 : 0.3), h.z + (fly ? (1 - u) * 2.4 : 0) + hv * 0.1);
+    if (fly) card.rotation.x = (1 - u) * -0.5;
+    api.ease(picker.hovered === card ? 1 : 0, dt);
+  });
+}
+
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  cur += (target - cur) * 0.06;
+  const s = cur * (NCH - 1);
+  setChapter(Math.round(s));
+
+  camCurve.getPoint(cur, _p); lookCurve.getPoint(cur, _l);
+  camera.position.copy(_p); camera.position.y += Math.sin(t * 0.5) * 0.04; camera.lookAt(_l);
+
+  EX.forEach((ex, i) => {
+    const a = smooth(clamp(1 - Math.abs(s - i) * 1.35, 0, 1)); ex.a = a;
+    const rise = easeOut(a);
+    ex.rise.position.y = -3.2 * (1 - rise);
+    ex.rise.visible = rise > 0.002;
+    ex.key.intensity = ex.keyI * a; ex.rim.intensity = ex.rimI * a; // intensity only — never toggle light visibility (shader recompiles)
+    if (i === Math.round(s)) { skey.position.copy(ex.key.position); skey.target.position.copy(ex.key.target.position); skey.angle = ex.key.angle; skey.penumbra = ex.key.penumbra; skey.intensity = ex.key.intensity; ex.key.intensity = 0; }
+    ex.pool.material.opacity = 0.16 * a;
+    const on = a > 0.55; if (on && !ex.on) ex.enterT = t; ex.on = on;
+  });
+
+  // 00 hero dust
+  { const ex = EX[0], p = ex.dust.geometry.attributes.position; const arr = p.array;
+    for (let i = 0; i < arr.length / 3; i++) { arr[i * 3 + 1] += dt * (0.08 + ex.seed[i] * 0.12); arr[i * 3] += Math.sin(t * 0.6 + ex.seed[i] * 9) * dt * 0.05; if (arr[i * 3 + 1] > 7) arr[i * 3 + 1] = 0; }
+    p.needsUpdate = true; ex.dust.material.opacity = 0.55 * ex.a; ex.cone.material.opacity = 0.05 * ex.a; }
+
+  // 01 rings around Byte
+  { const ex = EX[1]; ex.rings.forEach((r, k) => { const ph = (t * 0.28 + k / 3) % 1; r.scale.setScalar(1 + ph * 3.2); r.material.opacity = (1 - ph) * 0.45 * ex.a; }); }
+
+  // 02 blocks assemble + hover glow
+  { const ex = EX[2]; const arr = ex.lines.geometry.attributes.position.array;
+    ex.blocks.forEach((b, k) => { const u = easeOut(clamp((ex.a - 0.15 - k * 0.1) / 0.45, 0, 1)); const hv = b.userData.hover = lerp(b.userData.hover, picker.hovered === b ? 1 : 0, 1 - Math.exp(-10 * dt));
+      b.position.y = lerp(0.45, b.userData.target.y, u) + hv * 0.12; b.scale.setScalar(lerp(0.6, 1, u) * (1 + hv * 0.05)); b.material.emissiveIntensity = 0.12 * u + hv * 0.3; b.position.z = b.userData.target.z; b.rotation.y = Math.sin(t * 0.4 + k) * 0.08 * u; });
+    ex.lineIdx.forEach(([p, q], k) => { const A = ex.blocks[p].position, B = ex.blocks[q].position; arr.set([A.x, A.y, A.z, B.x, B.y, B.z], k * 6); });
+    ex.lines.geometry.attributes.position.needsUpdate = true; ex.lines.material.opacity = 0.7 * easeOut(clamp((ex.a - 0.6) / 0.4, 0, 1)); }
+
+  // 03 work wall flies in
+  animateCards(EX[3], t, dt, { fly: true, step: 0.07, dur: 0.8 });
+
+  // 04 LEDs + traffic + posters
+  { const ex = EX[4]; const led = ex.led;
+    for (let n = 0; n < led.count; n++) { const ph = ex.ledPhase[n]; const on = Math.sin(t * (2 + (ph % 3)) + ph) > 0.2; const amb = ((ph * 7) % 1) < 0.08 && Math.sin(t * 5 + ph) > 0.6; tmpC.copy(on ? (amb ? colAmb : colOn) : colOff).multiplyScalar(on ? 2.6 : 1); led.setColorAt(n, tmpC); }
+    led.instanceColor.needsUpdate = true; ex.fill.intensity = 7 * ex.a;
+    const p = ex.traffic.geometry.attributes.position, arr = p.array;
+    for (let i = 0; i < ex.vel.length; i++) { arr[i * 3] += ex.vel[i] * dt * (0.4 + ex.a); if (arr[i * 3] > 4) arr[i * 3] = -4; }
+    p.needsUpdate = true; ex.traffic.material.opacity = 0.8 * ex.a;
+    animateCards(ex, t, dt, { step: 0.12, dur: 0.7 }); }
+
+  // 05 cone widens, faces step in
+  { const ex = EX[5]; ex.key.angle = lerp(0.07, 0.62, easeOut(ex.a)); ex.rim.intensity = ex.rimI * easeOut(clamp((ex.a - 0.5) / 0.5, 0, 1));
+    animateCards(ex, t, dt, { step: 0.06, dur: 0.7 }); }
+
+  // 06 lamp
+  { const ex = EX[6]; ex.bulb.intensity = 2.4 * ex.a * (0.95 + Math.sin(t * 9) * 0.03); }
+
+  bot.update(dt, camera);
+  picker.update();
+  grain.uniforms.time.value = t;
+  cx += (mx - cx) * 0.25; cy += (my - cy) * 0.25; cursor.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -50%)`;
+  composer.render();
+}
+
+// resize
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); bloom.resolution.set(innerWidth, innerHeight); target = clamp(scrollY / docRange(), 0, 1); });
+document.addEventListener('visibilitychange', () => renderer.setAnimationLoop(document.hidden ? null : frame));
+
+// loader: ≤ 1.2 s of warm-up plus the 23 photos, then start
+const ldbar = document.getElementById('ldbar'), ldpct = document.getElementById('ldpct');
+let pct = 0, imgDone = 0; const IMG = [...TEAM, ...PROJECTS].map((x) => x.img); const t0 = performance.now();
+preload(IMG).then(() => { imgDone = 1; });
+renderer.compile(scene, camera);
+const tick = () => {
+  const timePct = Math.min(100, ((performance.now() - t0) / 1000) * 100);
+  pct = Math.round(Math.min(timePct, imgDone ? 100 : 88));
+  ldbar.style.width = pct + '%'; ldpct.textContent = pct + '%';
+  if (pct < 100 && performance.now() - t0 < 8000) requestAnimationFrame(tick); else document.getElementById('loader').classList.add('done');
+};
+tick();
+target = clamp(scrollY / docRange(), 0, 1); cur = target;
+renderer.setAnimationLoop(frame);
+window.__sb = { skey, renderer, scene, camera, EX }; // debug handle for headless QA
+</script>
+</body>
+</html>

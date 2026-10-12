@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>shared test</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#07090d;--slate:#141a24;--bone:#efe9dd;--mute:#8b93a1;--amber:#f2b25c;--sb:#1f8fd6;--display:'Inter Tight',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace}
+*{box-sizing:border-box;margin:0}body{background:var(--ink);color:var(--bone);font-family:var(--display);font-weight:300}
+canvas{position:fixed;inset:0;z-index:0}main{position:relative;z-index:1;pointer-events:none}section{min-height:100vh;padding:120px 64px}
+h2{font-size:64px;font-weight:300;letter-spacing:-.02em}.k{font:500 10px/1 var(--mono);letter-spacing:.26em;color:var(--mute);margin-bottom:16px}
+</style></head><body>
+<canvas id="stage"></canvas>
+<main><section id="bot"><div class="k">SHARED · BYTE</div><h2>Byte, the guide.</h2></section><section id="cards"><div class="k">SHARED · CARDS</div><h2>Real crew, real work.</h2></section></main>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { createBot, createVoiceToggle, voice } from './shared/sb-bot.js';
+import { photoCard, labelSprite, createPicker, createDetail, tip, tipPerson, tipProject, preload } from './shared/sb-cards.js';
+import { TEAM, PROJECTS, BOT } from './shared/sb-data.js';
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('stage'), antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.setSize(innerWidth, innerHeight); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x090c12); scene.fog = new THREE.FogExp2(0x090c12, 0.03);
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 100);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x0e1218, roughness: 0.9 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+scene.add(new THREE.HemisphereLight(0x8fa6c8, 0x0a0c10, 1.1));
+const key = new THREE.SpotLight(0xfff1dc, 180, 30, 0.6, 0.5, 1.6); key.position.set(3, 7, 5); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0005; key.shadow.normalBias = 0.04; scene.add(key, key.target);
+const cold = new THREE.PointLight(0x1f8fd6, 60, 30, 2); cold.position.set(-5, 3, -3); scene.add(cold);
+// bot
+const bot = createBot({ scale: 0.9 }); scene.add(bot.group); bot.place(new THREE.Vector3(-1.2, 0, 0)); bot.attachBubble(camera); createVoiceToggle();
+// cards
+const cards = new THREE.Group(); cards.position.set(0, 0, -10); scene.add(cards);
+const picker = createPicker({ camera, onHover: (o, d, p) => tip(d.kind === 'person' ? tipPerson(d.data) : tipProject(d.data), p.x, p.y), onLeave: () => tip(null), onClick: (o, d) => d.kind === 'person' ? detail.showPerson(d.data) : detail.showProject(d.data) });
+const detail = createDetail();
+TEAM.slice(0, 5).forEach((m, i) => { const c = photoCard({ url: m.img, w: 1, h: 1.25, imgRatio: 0.8 }); c.position.set(-3 + i * 1.5, 1.2, 0); cards.add(c); picker.add(c, { kind: 'person', data: m }); const l = labelSprite(m.name, { sub: m.role, width: 1.3 }); l.position.set(-3 + i * 1.5, 0.35, 0.01); cards.add(l); });
+PROJECTS.slice(0, 3).forEach((p, i) => { const c = photoCard({ url: p.img, w: 1.6, h: 1.1, imgRatio: p.ratio, radius: 0.04 }); c.position.set(-1.9 + i * 1.9, 2.95, -0.4); cards.add(c); picker.add(c, { kind: 'project', data: p }); });
+// post
+const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera)); composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.3, 0.45, 0.85)); composer.addPass(new OutputPass());
+// script
+const moods = ['wave', 'talk', 'point', 'cheer', 'idle']; let mi = 0, next = 1.5; const clock = new THREE.Clock(); let t = 0;
+setTimeout(() => bot.say(BOT.lines.hero), 1200); setTimeout(() => bot.say(BOT.lines.team, { hold: 9000 }), 7500);
+setTimeout(() => bot.goTo(new THREE.Vector3(1.4, 0, 0.6)), 5000);
+setTimeout(() => bot.pointAt(new THREE.Vector3(-3, 1.5, -10)), 8500);
+setTimeout(() => bot.setMood('cheer'), 11000);
+function frame() {
+  const dt = clock.getDelta(); t += dt; const p = Math.min(1, scrollY / Math.max(1, document.documentElement.scrollHeight - innerHeight));
+  camera.position.set(0.9 + p * -0.9, 1.4 + p * 0.7, 3.4 + p * -7.8); camera.lookAt(0.3, 1.15 + p * 0.75, -1 - p * 9);
+  bot.update(dt, camera); picker.enabled = p > 0.5; picker.update();
+  cards.children.forEach((c) => { if (c.userData.card) c.userData.card.ease(picker.hovered === c ? 1 : 0, dt); });
+  composer.render();
+}
+renderer.setAnimationLoop(frame);
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); });
+</script></body></html>
