@@ -63,14 +63,33 @@ export const voice = {
   },
   stop() { if (this.supported) speechSynthesis.cancel(); },
   // Mic: returns a controller or null when unsupported. onResult(text) fires once with the final transcript.
+  // Mic. Returns a controller or null when unsupported. onStart fires as soon as recognition is requested (Chrome may
+  // still be showing its permission prompt), onResult(text) once with the transcript, onEnd(reason) always —
+  // reason is null on success or one of: not-allowed, no-speech, audio-capture, network, aborted, service-not-allowed.
+  listening: false, lastError: null,
   listen({ onStart, onResult, onEnd, lang = 'en-US' } = {}) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return null;
-    const r = new SR(); r.lang = lang; r.interimResults = false; r.maxAlternatives = 1;
-    r.onstart = () => onStart && onStart();
-    r.onresult = (e) => { const t = e.results[0][0].transcript; onResult && onResult(t); };
-    r.onend = () => onEnd && onEnd(); r.onerror = () => onEnd && onEnd();
+    if (this.supported) speechSynthesis.cancel(); // never listen while Byte is talking (the mic would hear him)
+    const r = new SR(); r.lang = lang; r.interimResults = false; r.maxAlternatives = 1; r.continuous = false;
+    let reason = null, done = false, got = false;
+    const finish = () => { if (done) return; done = true; this.listening = false; this.lastError = reason; onEnd && onEnd(got ? null : reason || 'no-speech'); };
+    r.onresult = (e) => { const t = e.results[0][0].transcript; got = true; onResult && onResult(t); };
+    r.onerror = (e) => { reason = e.error || 'error'; };
+    r.onnomatch = () => { reason = 'no-speech'; };
+    r.onend = finish;
     try { r.start(); } catch { return null; }
-    return { stop: () => r.stop() };
+    this.listening = true; this.lastError = null; onStart && onStart();
+    return { stop: () => { try { r.stop(); } catch {} } };
+  },
+  // Human line for a failed listen, for Byte to say.
+  explain(reason) {
+    switch (reason) {
+      case 'not-allowed': case 'service-not-allowed': return 'Chrome blocked the microphone. Click the lock icon next to the address, allow the microphone, then press the mic again.';
+      case 'audio-capture': return 'I cannot find a microphone on this device.';
+      case 'network': return 'The speech service is unreachable right now. Check the connection and try again.';
+      case 'aborted': return 'Okay, cancelled.';
+      default: return "I didn't catch that. Press the mic and speak right after it lights up.";
+    }
   },
 };
 if (voice.supported) speechSynthesis.onvoiceschanged = () => { voice._voice = voice._pick(); };

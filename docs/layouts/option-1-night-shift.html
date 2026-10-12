@@ -670,7 +670,7 @@ micBtn.addEventListener('click', ()=>{
   listening=voice.listen({
     onStart:()=>micBtn.classList.add('listening'),
     onResult:(text)=>{ heard=true; const hit=BOT.intents.find(([re])=>re.test(text)); bot.say(hit? hit[1] : BOT.intents[BOT.intents.length-1][1]); },
-    onEnd:()=>{ micBtn.classList.remove('listening'); listening=null; if (!heard) bot.say("I couldn't hear anything. Allow the microphone, then press it again."); }
+    onEnd:(reason)=>{ micBtn.classList.remove('listening'); listening=null; if (!heard) bot.say(voice.explain(reason)); }
   });
   if (!listening){ micBtn.classList.remove('listening'); bot.say('No microphone API in this browser. Chrome works.'); }
   else micBtn.classList.add('listening');

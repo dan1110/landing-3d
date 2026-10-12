@@ -617,10 +617,11 @@ let listening = null;
 micBtn.addEventListener('click', () => {
   if (listening) { listening.stop(); return; }
   if (!voice.enabled) voice.enable({ silent: true }); // user gesture present; no "Voice on" blurb before listening
+  let heard = false;
   listening = voice.listen({
-    onStart: () => { micBtn.classList.add('listening'); micState.textContent = 'Listening…'; },
-    onResult: (text) => { micState.textContent = `“${text}”`; const hit = BOT.intents.find(([re]) => re.test(text)); bot.say(hit ? hit[1] : BOT.intents[BOT.intents.length - 1][1]); },
-    onEnd: () => { micBtn.classList.remove('listening'); listening = null; setTimeout(() => { if (!listening) micState.textContent = 'Byte is listening.'; }, 4000); },
+    onStart: () => { micBtn.classList.add('listening'); micState.textContent = 'Listening… (allow the mic if Chrome asks)'; },
+    onResult: (text) => { heard = true; micState.textContent = `“${text}”`; const hit = BOT.intents.find(([re]) => re.test(text)); bot.say(hit ? hit[1] : BOT.intents[BOT.intents.length - 1][1]); },
+    onEnd: (reason) => { micBtn.classList.remove('listening'); listening = null; if (!heard) { micState.textContent = reason === 'not-allowed' ? 'Mic blocked. Allow it in the address bar.' : 'Nothing heard. Try again.'; bot.say(voice.explain(reason)); } setTimeout(() => { if (!listening) micState.textContent = 'Byte is listening.'; }, 4000); },
   });
   if (!listening) { micState.textContent = 'No mic API here.'; bot.say('No microphone API in this browser. Chrome works.'); }
 });

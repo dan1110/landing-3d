@@ -781,7 +781,7 @@ micBtn.addEventListener('click', ()=>{
   listening = voice.listen({
     onStart:()=>{ micBtn.classList.add('listening'); micHint.textContent = 'LISTENING…'; },
     onResult:(text)=>{ got = true; heard.textContent = '“' + text + '”'; const hit = BOT.intents.find(([re])=>re.test(text)); bot.say(hit ? hit[1] : BOT.intents[BOT.intents.length-1][1]); },
-    onEnd:()=>{ listening = null; micBtn.classList.remove('listening'); micHint.textContent = got ? 'TAP THE MIC · ASK ABOUT THE TEAM OR A PROJECT' : 'NOTHING HEARD · ALLOW THE MIC AND TRY AGAIN'; },
+    onEnd:(reason)=>{ listening = null; micBtn.classList.remove('listening'); micHint.textContent = got ? 'TAP THE MIC · ASK ABOUT THE TEAM OR A PROJECT' : (reason === 'not-allowed' ? 'MIC BLOCKED · ALLOW IT IN THE ADDRESS BAR' : 'NOTHING HEARD · TRY AGAIN'); if (!got) bot.say(voice.explain(reason)); },
   });
   if (!listening) { micHint.textContent = 'NO MIC API IN THIS BROWSER'; bot.say('No microphone API in this browser. Chrome works.'); }
 });
