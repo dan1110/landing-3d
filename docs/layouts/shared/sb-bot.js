@@ -186,6 +186,7 @@ export function createBot({ scale = 1, name = 'Byte', light = true, model = 'ass
     return ring;
   });
   // small warm rim so Byte reads in dark scenes (one light, created once, never toggled)
+  let torsoRestY = 1;
   const procKids = [...body.children]; // what the GLB replaces (lights/props options attach to body later are kept)
   let rim = null;
   if (light) { rim = new THREE.PointLight(COL.pad, 5, 3.2, 2); rim.position.set(0.7, 1.9, -0.6); group.add(rim); }
@@ -205,7 +206,7 @@ export function createBot({ scale = 1, name = 'Byte', light = true, model = 'ass
         const miss = need.filter((n) => !find(n)); if (miss.length) return rej(new Error('byte.glb is missing nodes: ' + miss.join(', ')));
         g.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; if (o.material && o.material.emissiveIntensity > 1.5) o.material.toneMapped = true; } });
         procKids.forEach((c) => body.remove(c)); body.add(g.scene);
-        torso = find('Torso'); armR = find('UpperArm.R'); armL = find('UpperArm.L'); legR = find('UpperLeg.R'); legL = find('UpperLeg.L');
+        torso = find('Torso'); torsoRestY = torso.scale.y; armR = find('UpperArm.R'); armL = find('UpperArm.L'); legR = find('UpperLeg.R'); legL = find('UpperLeg.L');
         neck = find('Neck'); head = find('Head'); eyes = [find('Eye.R'), find('Eye.L')]; mouth = find('Mouth'); pads = [find('Pad.R'), find('Pad.L')];
         padM = pads[0].material; if (pads[1].material !== padM) pads[1].material = padM;
         armR.userData.rest = { x: 0, z: 0.18 }; armL.userData.rest = { x: 0, z: -0.18 }; armR.rotation.z = 0.18; armL.rotation.z = -0.18;
@@ -256,7 +257,7 @@ export function createBot({ scale = 1, name = 'Byte', light = true, model = 'ass
         }
       }
       legR.rotation.x = damp(legR.rotation.x, swing, 14, dt); legL.rotation.x = damp(legL.rotation.x, -swing, 14, dt);
-      torso.scale.y = 1 + Math.sin(t * 2.1) * 0.015; body.rotation.z = Math.sin(t * 1.3) * 0.015;
+      torso.scale.y = torsoRestY * (1 + Math.sin(t * 2.1) * 0.015); body.rotation.z = Math.sin(t * 1.3) * 0.015; // breathing (GLB nodes carry their size in scale)
       // --- blink ---
       if (t > S.blinkAt) { S.blink = 0.14; S.blinkAt = t + 2.2 + Math.random() * 3; }
       if (S.blink > 0) { S.blink -= dt; const o = S.blink > 0.07 ? 1 - (0.14 - S.blink) / 0.07 : S.blink / 0.07; eyes.forEach((e) => e.scale.y = Math.max(0.08, o)); } else eyes.forEach((e) => e.scale.y = 1);

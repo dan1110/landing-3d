@@ -16,7 +16,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
   body { background: var(--ink); color: var(--bone); font-family: var(--display); font-weight: 300; overflow-x: hidden; }
-  @media (pointer: fine) { body { cursor: none; } body a, body button { cursor: none; } }
+  @media (pointer: fine) { body { cursor: auto; } body a, body button { cursor: pointer; } }
 
   /* loader */
   #loader { position: fixed; inset: 0; z-index: 50; background: var(--ink); display: grid; place-items: center; transition: opacity .6s ease; }

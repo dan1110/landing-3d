@@ -20,7 +20,7 @@ scene.add(new THREE.HemisphereLight(0x8fa6c8, 0x0a0c10, 1.0));
 const key = new THREE.SpotLight(0xfff1dc, 160, 30, 0.6, 0.5, 1.6); key.position.set(3, 7, 5); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0005; key.shadow.normalBias = 0.04; scene.add(key, key.target);
 const cold = new THREE.PointLight(0x1f8fd6, 50, 30, 2); cold.position.set(-5, 3, -3); scene.add(cold);
 const glb = createBot({ scale: 1 }); scene.add(glb.group); glb.place(new THREE.Vector3(0, 0, 0), 0);
-const proc = createBot({ scale: 1, model: false }); scene.add(proc.group); proc.place(new THREE.Vector3(6, 0, 0), 0);
+const proc = createBot({ scale: 1, model: false }); scene.add(proc.group); proc.place(new THREE.Vector3(6, 0, 0), 0); window.__bots = { glb, proc, THREE };
 const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera)); composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.3, 0.45, 0.85)); composer.addPass(new OutputPass());
 const clock = new THREE.Clock();
 function frame() {
