@@ -709,8 +709,8 @@ const act = (s, i) => smooth(clamp(1 - Math.abs(s - i) * 1.3, 0, 1));
 const modLineArr = modLinesGeo.attributes.position.array;
 
 function frame() {
-  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
-  cur += (target - cur) * 0.06;
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime; target = clamp(scrollY / docRangeV, 0, 1); // read scroll every frame: hash jumps don't always fire a final scroll event
+  cur += (target - cur) * (Math.abs(target - cur) > 0.04 ? 0.22 : 0.06); // big jumps (nav clicks) catch up fast, wheel scroll stays smooth
   const s = cur * 6;
   setChapter(Math.round(s));
 

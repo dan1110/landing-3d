@@ -694,8 +694,8 @@ function animateCards(ex, t, dt, { fly = false, step = 0.06, dur = 0.7 } = {}) {
 }
 
 function frame() {
-  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
-  cur += (target - cur) * 0.06;
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime; target = progress(); // read scroll every frame: hash jumps don't always fire a final scroll event
+  cur += (target - cur) * (Math.abs(target - cur) > 0.04 ? 0.22 : 0.06); // big jumps (nav clicks) catch up fast, wheel scroll stays smooth
   const s = cur * (NCH - 1);
   setChapter(Math.round(s));
 

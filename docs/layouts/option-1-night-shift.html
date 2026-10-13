@@ -749,11 +749,11 @@ const IMGS=[...CREW, ...PROJECTS].map(x=>x.img); let imgDone=0; IMGS.forEach(u=>
 const clock=new THREE.Clock(); let a02=0; const _p=new THREE.Vector3(), _l=new THREE.Vector3(), _c=new THREE.Color();
 let visible=true;
 function frame(){
-  const dt=Math.min(.05, clock.getDelta()); const t=clock.elapsedTime;
+  const dt=Math.min(.05, clock.getDelta()); const t=clock.elapsedTime; onScroll(); // read scroll every frame: hash jumps don't always fire a final scroll event
   // loader
   if (!loaded){ const el=performance.now()-t0; const lp=Math.min(Math.min(1,el/1100), .2+.8*imgDone/IMGS.length + (el>8000?1:0)); lbar.style.width=(Math.min(1,lp)*100)+'%'; lpct.textContent=Math.round(Math.min(1,lp)*100)+'%'; if (lp>=1){ loaded=true; document.getElementById('loader').classList.add('done'); stageByte(0); } }
   // scroll smoothing
-  pS+=(p-pS)*.06; const s=sample(pS);
+  pS+=(p-pS)*(Math.abs(p-pS)>0.04?0.22:0.06); const s=sample(pS); // big jumps (nav clicks) catch up fast, wheel scroll stays smooth
   curvePos.getPoint(s.u,_p); curveLook.getPoint(s.u,_l);
   camera.position.copy(_p); camera.lookAt(_l);
   camera.position.y += Math.sin(t*.7)*.015; // breath

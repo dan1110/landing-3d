@@ -911,12 +911,12 @@ const camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
 readScroll();
 renderer.setAnimationLoop(()=>{
   if (document.hidden) return;
-  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime; readScroll(); // read scroll every frame: hash jumps don't always fire a final scroll event
 
   if (!gpuReady) { bar.style.width = '12%'; pct.textContent = 'GPU'; return; }
   if (!loaded) { loadT += dt; const v = Math.min(1, loadT/1.1)*0.5 + 0.5*(texDone/texUrls.length); bar.style.width = (v*100)+'%'; pct.textContent = Math.round(v*100)+'%'; if (v>=0.999) { loaded = true; loader.classList.add('done'); bot.attachBubble(camera); botIdx = -1; botChapter(activeIdx); } }
 
-  smoothP = lerp(smoothP, scrollP, 0.06);
+  smoothP = lerp(smoothP, scrollP, Math.abs(scrollP - smoothP) > 0.04 ? 0.22 : 0.06); // big jumps (nav clicks) catch up fast, wheel scroll stays smooth
   // hold at keyframes: segment-wise smoothstep
   const seg = Math.min(N-2, Math.floor(smoothP*(N-1))); const u = smoothP*(N-1) - seg; const tt = (seg + smooth(u))/(N-1);
   posCurve.getPoint(tt, camPos); lookCurve.getPoint(tt, camLook);
